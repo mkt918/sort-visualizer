@@ -202,3 +202,132 @@ Sub QuickSort(a() As Long, lo As Long, hi As Long)
     Call QuickSort(a, lo, j)
     Call QuickSort(a, i, hi)
 End Sub
+
+'
+' マージソート
+' A列に数値を入れて実行すると、B列に並べ替え結果を書き出す。
+' n（件数）は A列を自動で数えるので、あらかじめ n を書き換える必要はない。
+Sub MergeSortCaller()
+    Dim a() As Long
+    Dim w() As Long
+    Dim n As Long, i As Long
+    n = Cells(Rows.Count, 1).End(xlUp).Row
+    ReDim a(n - 1)
+    ReDim w(n - 1)
+
+    ' A列（A1から、データがある分だけ）の数値を配列 a に読み込む
+    For i = 0 To n - 1
+        a(i) = Cells(i + 1, 1).Value
+    Next i
+
+    ' ----- 並べ替え（マージソート） -----
+    Call MergeSort(a, 0, n - 1, w)
+
+    ' 並べ替えた結果を B列 に書き出す
+    For i = 0 To n - 1
+        Cells(i + 1, 2).Value = a(i)
+    Next i
+End Sub
+
+' 範囲 [lo, hi] を半分に分けて、それぞれ並べ替えてから結合する
+Sub MergeSort(a() As Long, lo As Long, hi As Long, w() As Long)
+    Dim mid As Long
+    If lo >= hi Then Exit Sub
+    mid = (lo + hi) \ 2
+    Call MergeSort(a, lo, mid, w)
+    Call MergeSort(a, mid + 1, hi, w)
+    Call Merge(a, lo, mid, hi, w)
+End Sub
+
+' 並び済みの2つの範囲 [lo, mid] と [mid+1, hi] を、w を使って1つに結合する
+Sub Merge(a() As Long, lo As Long, mid As Long, hi As Long, w() As Long)
+    Dim i As Long, j As Long, k As Long
+    i = lo
+    j = mid + 1
+    k = lo
+    Do While i <= mid And j <= hi
+        If a(i) <= a(j) Then
+            w(k) = a(i)
+            i = i + 1
+        Else
+            w(k) = a(j)
+            j = j + 1
+        End If
+        k = k + 1
+    Loop
+    Do While i <= mid
+        w(k) = a(i)
+        i = i + 1
+        k = k + 1
+    Loop
+    Do While j <= hi
+        w(k) = a(j)
+        j = j + 1
+        k = k + 1
+    Loop
+    For k = lo To hi
+        a(k) = w(k)
+    Next k
+End Sub
+
+'
+' ヒープソート
+' A列に数値を入れて実行すると、B列に並べ替え結果を書き出す。
+' n（件数）は A列を自動で数えるので、あらかじめ n を書き換える必要はない。
+Sub HeapSortCaller()
+    Dim a() As Long
+    Dim n As Long, i As Long
+    n = Cells(Rows.Count, 1).End(xlUp).Row
+    ReDim a(n - 1)
+
+    ' A列（A1から、データがある分だけ）の数値を配列 a に読み込む
+    For i = 0 To n - 1
+        a(i) = Cells(i + 1, 1).Value
+    Next i
+
+    ' ----- 並べ替え（ヒープソート） -----
+    Call HeapSort(a, n)
+
+    ' 並べ替えた結果を B列 に書き出す
+    For i = 0 To n - 1
+        Cells(i + 1, 2).Value = a(i)
+    Next i
+End Sub
+
+' 配列全体を最大ヒープに組み替えたあと、根を1つずつ確定させる
+Sub HeapSort(a() As Long, n As Long)
+    Dim i As Long, tmp As Long
+    For i = n \ 2 - 1 To 0 Step -1
+        Call Heapify(a, n, i)
+    Next i
+    For i = n - 1 To 1 Step -1
+        tmp = a(0)
+        a(0) = a(i)
+        a(i) = tmp
+        Call Heapify(a, i, 0)
+    Next i
+End Sub
+
+' root を頂点とする部分木を、サイズ heapSize の範囲で最大ヒープに保つ
+Sub Heapify(a() As Long, heapSize As Long, root As Long)
+    Dim largest As Long, left As Long, right As Long, tmp As Long
+    largest = root
+    left = 2 * root + 1
+    right = 2 * root + 2
+    If left < heapSize Then
+        If a(left) > a(largest) Then
+            largest = left
+        End If
+    End If
+    If right < heapSize Then
+        If a(right) > a(largest) Then
+            largest = right
+        End If
+    End If
+    If largest <> root Then
+        tmp = a(root)
+        a(root) = a(largest)
+        a(largest) = tmp
+        Call Heapify(a, heapSize, largest)
+    End If
+End Sub

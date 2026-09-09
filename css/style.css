@@ -298,6 +298,12 @@ h1, h2, h3 {
 
 .seek { width: 100%; accent-color: var(--color-accent); }
 
+/* ---- 速度（プリセットボタン） ----
+   1〜120の連続スライダーは、実際によく使う低速域（1〜5）ほど
+   選びにくいという問題があったため、倍々の離散ボタンに置き換えた。 */
+.speedset { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
+.speedset .btn--sm { min-width: 36px; padding-left: 0.4rem; padding-right: 0.4rem; }
+
 .datasource {
   display: flex;
   flex-wrap: wrap;
@@ -360,6 +366,38 @@ h1, h2, h3 {
 .tok-kw  { color: oklch(72% 0.14 256); }
 .tok-com { color: var(--color-on-dark-3); }
 .tok-num { color: oklch(80% 0.11 165); }
+
+/* ---- コード編集（簡易インタプリタ） ---- */
+.code-edit {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 200px;
+  max-height: min(46vh, 520px);
+  padding: var(--space-sm);
+  background: var(--color-graphite);
+  border: var(--rule-hair) solid var(--color-rule-dark);
+  border-radius: var(--radius-lg);
+  color: var(--color-on-dark);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  line-height: 1.55;
+  tab-size: 4;
+}
+.code-edit:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
+.code-error {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--rule-hair) solid var(--bar-swap-edge);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--bar-swap) 22%, var(--color-paper));
+  color: var(--bar-swap-edge);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+}
 
 /* ---- 変数ウォッチ ---- */
 .watch { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-xs); }
@@ -483,6 +521,19 @@ h1, h2, h3 {
   .chart { height: clamp(180px, 34vh, 300px); }
   .field input[type="range"] { width: 88px; }
   .algos__group + .algos__group { margin-left: 0; padding-left: 0; border-left: 0; }
+  .code { max-height: 40vh; }
+  .watch { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+  .counters { grid-template-columns: 1fr 1fr; }
+}
+
+/* タッチ操作の端末（スマホ・タブレット）では、幅に関係なく指で押せる大きさを確保する。
+   マウス前提の投影・PC操作時（pointer: fine）は情報密度を優先して34pxのまま詰める。 */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn--sm { min-height: 44px; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .field select { min-height: 44px; }
+  .field { min-height: 44px; }
+  .speedset .btn--sm { min-width: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

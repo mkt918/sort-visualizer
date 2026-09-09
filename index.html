@@ -38,10 +38,17 @@
 
           <span class="transport__sep"></span>
 
-          <label class="field">速度
-            <input id="speed" type="range" min="1" max="120" value="12" step="1">
-            <output id="speedOut">12/秒</output>
-          </label>
+          <div class="speedset" id="speedSet" role="group" aria-label="再生速度（1秒あたりのステップ数）">
+            <span class="u-label">速度</span>
+            <button class="btn btn--sm" type="button" data-speed="1">1</button>
+            <button class="btn btn--sm" type="button" data-speed="2">2</button>
+            <button class="btn btn--sm" type="button" data-speed="4">4</button>
+            <button class="btn btn--sm" type="button" data-speed="8" aria-pressed="true">8</button>
+            <button class="btn btn--sm" type="button" data-speed="16">16</button>
+            <button class="btn btn--sm" type="button" data-speed="32">32</button>
+            <button class="btn btn--sm" type="button" data-speed="64">64</button>
+            <span class="u-label">step/秒</span>
+          </div>
         </div>
       </div>
     </div>
@@ -105,9 +112,16 @@
         <label class="field"><input type="checkbox" id="chkFull"> 読み込み・書き出しも表示</label>
       </div>
       <ol class="code" id="code"></ol>
+      <textarea class="code-edit" id="codeEdit" hidden spellcheck="false"
+                aria-label="編集中のVBAコード（コアループのみ）"></textarea>
+      <p class="code-error" id="codeError" hidden role="alert"></p>
       <div class="transport__row">
         <button class="btn btn--sm" id="btnCopy" type="button">コードをコピー</button>
-        <span class="u-label">VBE に貼り付けて F5</span>
+        <span class="u-label" id="editHint">VBE に貼り付けて F5</span>
+        <span class="transport__sep"></span>
+        <button class="btn btn--sm" id="btnEditToggle" type="button" hidden>✎ 編集する</button>
+        <button class="btn btn--sm btn--primary" id="btnRunEdited" type="button" hidden>▶ 実行</button>
+        <button class="btn btn--sm" id="btnEditReset" type="button" hidden>元に戻す</button>
       </div>
     </section>
 
@@ -125,9 +139,9 @@
           <span class="counter__note" id="cntTheory"></span>
         </div>
         <div class="counter">
-          <span class="counter__k">交換</span>
+          <span class="counter__k" id="cntSwapLabel">交換</span>
           <span class="counter__v" id="cntSwap">0</span>
-          <span class="counter__note">値を入れ替えた回数</span>
+          <span class="counter__note" id="cntSwapNote">値を入れ替えた回数</span>
         </div>
         <div class="counter">
           <span class="counter__k">計算量</span>
@@ -151,11 +165,14 @@
 <script src="js/player.js"></script>
 <script src="js/race.js"></script>
 <script src="js/render.js"></script>
+<script src="js/interpreter.js"></script>
 <script src="js/algorithms/bubble.js"></script>
 <script src="js/algorithms/selection.js"></script>
 <script src="js/algorithms/insertion.js"></script>
 <script src="js/algorithms/shell.js"></script>
 <script src="js/algorithms/quick.js"></script>
+<script src="js/algorithms/merge.js"></script>
+<script src="js/algorithms/heap.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

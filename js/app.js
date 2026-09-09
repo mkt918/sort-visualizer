@@ -2,7 +2,7 @@
 (function (SV) {
   'use strict';
 
-  var ORDER = ['bubble', 'selection', 'insertion', 'shell', 'quick'];
+  var ORDER = ['bubble', 'selection', 'insertion', 'shell', 'quick', 'merge', 'heap'];
   var TIER_LABEL = { basic: 'まず理解する', advanced: '動きを見る' };
 
   var el = {};
@@ -18,6 +18,8 @@
     codeView: null,
     watchMap: null,
     showFullCode: false,
+    editing: false,        // コード編集モード中か（textareaを表示しているか）
+    editText: '',          // 最後に成功した／編集中のコアループのテキスト（アルゴリズム切替でリセット）
     raceOn: false,
     raceViewA: null,
     raceViewB: null
@@ -59,6 +61,7 @@
         b.addEventListener('click', function () {
           if (state.algoId === a.id) return;
           state.algoId = a.id;
+          state.editText = ''; // 別アルゴリズムに切り替えたら編集内容は破棄する
           syncAlgoTabs();
           rebuild();
         });
@@ -109,21 +112,13 @@
     if (state.raceOn) rebuildRace(); else rebuild();
   }
 
-  function rebuild() {
-    var A = algo();
-    state.model = SV.buildVba(A.vba(state.n));
-
-    var rec = new SV.Recorder(state.values, A.watchVars);
-    try {
-      A.generate(rec, state.model.lines);
-    } catch (err) {
-      el.narration.textContent = '生成に失敗しました: ' + err.message;
-      return;
-    }
-
+  /* コード実行の結果（rec）と、それに対応するコード表示モデルを画面へ反映する。
+   * 手書き generate() の結果と、インタプリタの実行結果の、両方から呼ぶ共通処理。 */
+  function applyResult(rec, model, A) {
+    state.model = model;
     state.chartView = SV.render.buildChart(el.chart, state.values);
-    state.codeView = SV.render.buildCode(el.code, state.model);
-    SV.render.setCodeScope(state.codeView, state.model, state.showFullCode);
+    state.codeView = SV.render.buildCode(el.code, model);
+    SV.render.setCodeScope(state.codeView, model, state.showFullCode);
     state.watchMap = SV.render.buildWatch(el.watch, A.watchVars);
 
     el.stageTitle.textContent = A.name;
@@ -132,10 +127,101 @@
     el.cntTheory.textContent = A.theoryLabel
       ? A.theoryLabel(state.n)
       : '最悪 ' + A.theoryCompare(state.n) + ' 回 = ' + A.theoryNote + '（n=' + state.n + '）';
+    el.cntSwapLabel.textContent = A.swapLabel || '交換';
+    el.cntSwapNote.textContent = A.swapNote || '値を入れ替えた回数';
     el.seek.max = String(Math.max(0, rec.steps.length - 1));
     el.seek.value = '0';
 
     player.load(rec.steps);
+  }
+
+  function rebuild() {
+    var A = algo();
+    exitEditMode(); // 編集画面を出していたら、正規のハイライト表示に戻す
+
+    var model = SV.buildVba(A.vba(state.n));
+    var rec = new SV.Recorder(state.values, A.watchVars);
+    try {
+      A.generate(rec, model.lines);
+    } catch (err) {
+      el.narration.textContent = '生成に失敗しました: ' + err.message;
+      return;
+    }
+    applyResult(rec, model, A);
+  }
+
+  /* ---------------- コード編集して実行 ----------------
+   * バブル・選択・挿入・シェル（単一Sub・非再帰）だけが対象。
+   * クイック・マージ・ヒープは複数Subにまたがる再帰構造で、一般的な解釈が
+   * ずっと難しくなるため、簡易インタプリタでは対応していない。 */
+
+  function editSupported() {
+    return algo().supportsInterpreter !== false;
+  }
+
+  function showCodeError(msg) {
+    el.codeError.textContent = '⚠ ' + msg;
+    el.codeError.hidden = false;
+  }
+
+  function hideCodeError() {
+    el.codeError.hidden = true;
+    el.codeError.textContent = '';
+  }
+
+  function exitEditMode() {
+    state.editing = false;
+    el.codeEdit.hidden = true;
+    el.code.hidden = false;
+    hideCodeError();
+    el.btnRunEdited.hidden = true;
+    el.btnEditReset.hidden = true;
+    el.editHint.hidden = false;
+    el.btnEditToggle.hidden = !editSupported();
+  }
+
+  function enterEditMode() {
+    if (!editSupported()) return;
+    var A = algo();
+    if (!state.editText) {
+      var model = SV.buildVba(A.vba(state.n));
+      state.editText = model.display.slice(model.coreFrom - 1, model.coreTo).join('\n');
+    }
+    state.editing = true;
+    el.codeEdit.value = state.editText;
+    el.code.hidden = true;
+    el.codeEdit.hidden = false;
+    hideCodeError();
+    el.btnEditToggle.hidden = true;
+    el.btnRunEdited.hidden = false;
+    el.btnEditReset.hidden = false;
+    el.editHint.hidden = true;
+    el.codeEdit.focus();
+  }
+
+  function runEditedCode() {
+    var A = algo();
+    var lines = el.codeEdit.value.replace(/\r\n/g, '\n').split('\n');
+    var rec;
+    try {
+      rec = SV.Interpreter.run(lines, state.values, A.watchVars);
+    } catch (err) {
+      showCodeError((err.atLine ? err.atLine + '行目: ' : '') + err.message);
+      return;
+    }
+    state.editText = lines.join('\n');
+    var model = {
+      display: lines.slice(), lines: {},
+      coreFrom: 1, coreTo: lines.length, lineCount: lines.length,
+      text: lines.join('\r\n')
+    };
+    applyResult(rec, model, A);
+    exitEditMode();
+  }
+
+  function resetEditedCode() {
+    state.editText = '';
+    rebuild();
   }
 
   /* ---------------- レース ---------------- */
@@ -282,6 +368,20 @@
     el.btnPlay.setAttribute('aria-pressed', String(p.playing));
   }
 
+  /* ---------------- 速度（プリセットボタン） ----------------
+   * 1〜120の連続スライダーは、よく使う低速域（1〜5）ほど選びにくいので、
+   * 倍々の離散ボタン（1/2/4/8/16/32/64）に置き換えてある。
+   * ソロ再生とレースは同じ速度を共有する。 */
+  function setSpeed(v) {
+    player.setSpeed(v);
+    race.setSpeed(v);
+    var buttons = el.speedSet.querySelectorAll('[data-speed]');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed',
+        String(Number(buttons[i].getAttribute('data-speed')) === v));
+    }
+  }
+
   /* ---------------- コードのコピー ---------------- */
 
   function flash(button, message, ok) {
@@ -342,9 +442,10 @@
 
   function init() {
     ['algos', 'presets', 'stageTitle', 'stageSummary', 'chart', 'narration',
-     'seek', 'btnPlay', 'btnPrev', 'btnNext', 'btnReset', 'speed', 'speedOut',
+     'seek', 'btnPlay', 'btnPrev', 'btnNext', 'btnReset', 'speedSet',
      'count', 'btnShuffle', 'code', 'chkFull', 'btnCopy', 'watch',
-     'cntCompare', 'cntSwap', 'cntTheory', 'cntOrder', 'legend',
+     'codeEdit', 'codeError', 'editHint', 'btnEditToggle', 'btnRunEdited', 'btnEditReset',
+     'cntCompare', 'cntSwap', 'cntSwapLabel', 'cntSwapNote', 'cntTheory', 'cntOrder', 'legend',
      'soloView', 'raceView', 'inspector', 'workbench', 'btnRace',
      'raceSelectA', 'raceSelectB', 'raceStatusA', 'raceStatusB',
      'raceChartA', 'raceChartB', 'raceStepA', 'raceStepB',
@@ -369,6 +470,9 @@
     el.btnReset.addEventListener('click', function () { player.pause(); player.seek(0); });
     el.btnShuffle.addEventListener('click', newData);
     el.btnCopy.addEventListener('click', copyCode);
+    el.btnEditToggle.addEventListener('click', enterEditMode);
+    el.btnRunEdited.addEventListener('click', runEditedCode);
+    el.btnEditReset.addEventListener('click', resetEditedCode);
     el.btnRace.addEventListener('click', toggleRace);
 
     el.raceBtnPlay.addEventListener('click', function () {
@@ -392,11 +496,10 @@
       player.seek(Number(el.seek.value));
     });
 
-    el.speed.addEventListener('input', function () {
-      var v = Number(el.speed.value);
-      player.setSpeed(v);
-      race.setSpeed(v);
-      el.speedOut.textContent = v + '/秒';
+    el.speedSet.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-speed]') : null;
+      if (!btn) return;
+      setSpeed(Number(btn.getAttribute('data-speed')));
     });
 
     el.count.addEventListener('change', function () {
@@ -414,9 +517,7 @@
     document.addEventListener('keydown', onKey);
 
     state.n = Number(el.count.value);
-    player.setSpeed(Number(el.speed.value));
-    race.setSpeed(Number(el.speed.value));
-    el.speedOut.textContent = el.speed.value + '/秒';
+    setSpeed(Number(el.speedSet.querySelector('[aria-pressed="true"]').getAttribute('data-speed')));
     newData();
     onPlayState(player);
   }

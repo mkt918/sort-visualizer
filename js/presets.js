@@ -40,10 +40,14 @@ window.SV = window.SV || {};
 
       } else if (id === 'nearly') {
         arr = asc(n);
-        swaps = Math.max(1, Math.floor(n / 8));
-        for (i = 0; i < swaps; i++) {
-          k = Math.floor(Math.random() * Math.max(1, n - 1));
-          t = arr[k]; arr[k] = arr[k + 1]; arr[k + 1] = t;
+        // 要素が2個未満だと入れ替える相手がいない。
+        // ここを素通りしないと arr[n] に書き込んで配列長が伸びてしまうバグがあった。
+        if (n >= 2) {
+          swaps = Math.max(1, Math.floor(n / 8));
+          for (i = 0; i < swaps; i++) {
+            k = Math.floor(Math.random() * (n - 1));
+            t = arr[k]; arr[k] = arr[k + 1]; arr[k + 1] = t;
+          }
         }
 
       } else if (id === 'duplicates') {

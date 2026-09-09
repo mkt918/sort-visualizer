@@ -18,7 +18,7 @@
 
 ## 方法2：`SortDemo.bas` を丸ごとインポートする
 
-5種類のアルゴリズムを1つのモジュールにまとめたものが `excel/SortDemo.bas` にある。
+7種類のアルゴリズムを1つのモジュールにまとめたものが `excel/SortDemo.bas` にある。
 一つ一つコピペするのが面倒なときはこちら。
 
 1. Excelを開き、`Alt + F11` で VBE を開く。
@@ -39,9 +39,12 @@
 | `InsertionSort` | 挿入ソート |
 | `ShellSort` | シェルソート |
 | `QuickSortCaller` | クイックソート（実行はこちらを選ぶ） |
+| `MergeSortCaller` | マージソート（実行はこちらを選ぶ） |
+| `HeapSortCaller` | ヒープソート（実行はこちらを選ぶ） |
 
-`QuickSort` という名前のSubも中にあるが、これは `QuickSortCaller` から自動的に呼ばれる
-再帰処理の本体なので、直接実行するものではない。
+`QuickSort`・`MergeSort`／`Merge`・`HeapSort`／`Heapify` という名前のSubも中にあるが、
+これらはそれぞれの `〜Caller` から自動的に呼ばれる本体（マージソートは再帰＋結合、
+ヒープソートは全体制御＋部分木の整形）なので、直接実行するものではない。
 
 `SortDemo.bas` はA列の件数を自動で数える（`Cells(Rows.Count, 1).End(xlUp).Row`）ので、
 本数を書き換える必要はない。画面のコピペ版は本数が固定（棒の本数）だが、動きは同じ。

@@ -64,7 +64,12 @@ window.SV = window.SV || {};
         SV.presets.order.forEach(function (pid) {
           CASES_N.forEach(function (n) {
             var input = SV.presets.make(pid, n);
+            assert(input.length === n, pid + ' が本数 n=' + n + ' 通りの配列を作っていない（実際は ' + input.length + '）');
+            assert(input.every(function (v) { return typeof v === 'number' && isFinite(v); }),
+              pid + ' n=' + n + ' の初期データに数値以外が混ざっている: ' + input);
             var r = runAlgo(id, input);
+            assert(r.rec.a.every(function (v) { return typeof v === 'number' && isFinite(v); }),
+              pid + ' n=' + n + ' の結果に数値以外が混ざっている（isSortedが undefined 同士の比較を見逃す穴）: ' + r.rec.a);
             assert(isSorted(r.rec.a), pid + ' n=' + n + ' が昇順になっていない: ' + r.rec.a);
             assert(samePermutation(r.rec.a, input),
               pid + ' n=' + n + ' で要素が変わった');
@@ -94,24 +99,25 @@ window.SV = window.SV || {};
       /* (c) 途中の状態でも値が失われないこと。
        * tmp への退避中は配列に同じ値が一時的に2つ並ぶ（VBAの実際の挙動）。
        * これは仕様なので、tmp を含めて数えて「消えていない」ことを検証する。 */
-      check(A.name + ' · 途中でも値が失われない（tmp を含めて数える）', function () {
+      check(A.name + ' · 途中でも値が失われない（tmp / extra を含めて数える）', function () {
         var input = SV.presets.make('reversed', 10);
         var r = runAlgo(id, input);
         var exact = 0, held = 0;
         r.rec.steps.forEach(function (s, k) {
           var tmp = s.vars.tmp;
           var pool = s.array.slice();
-          var holding = (tmp !== null && tmp !== undefined);
-          if (holding) pool.push(tmp);
+          var holding = (tmp !== null && tmp !== undefined) || (s.extra && s.extra.length > 0);
+          if (tmp !== null && tmp !== undefined) pool.push(tmp);
+          if (s.extra) pool = pool.concat(s.extra);
           assert(containsAll(pool, input), 'step ' + k + ' で値が失われた');
           if (holding) { held++; }
           else {
             assert(samePermutation(s.array, input),
-              'step ' + k + '（tmp が空）なのに要素が変化している');
+              'step ' + k + '（退避中の値なし）なのに要素が変化している');
             exact++;
           }
         });
-        return 'tmp が空の ' + exact + ' ステップは完全一致 / 退避中 ' + held + ' ステップ';
+        return '退避なしの ' + exact + ' ステップは完全一致 / 退避中 ' + held + ' ステップ';
       });
 
       /* (d) 逆行してステップ0に戻ると初期配列に一致する */
@@ -162,6 +168,42 @@ window.SV = window.SV || {};
         });
         return 'OK';
       });
+
+      /* (i) 「編集して実行」インタプリタ対応の4アルゴリズムだけ、
+       * 画面に出ているのと同じコア行テキストを実際に解釈・実行させ、
+       * 手書きの generate() と同じ結果（ソート結果・比較回数）になることを確かめる。
+       * ここが崩れると、生徒が何も編集していないのに「実行」しただけで
+       * 結果が変わってしまう＝インタプリタが画面のコードを正しく再現できていない、
+       * という重大な不具合になる。 */
+      if (A.supportsInterpreter !== false) {
+        check(A.name + ' · 編集インタプリタが手書きgenerate()と同じ結果になる（未編集時）', function () {
+          var count = 0;
+          SV.presets.order.forEach(function (pid) {
+            CASES_N.forEach(function (n) {
+              var input = SV.presets.make(pid, n);
+              var model = SV.buildVba(A.vba(n));
+              var coreLines = model.display.slice(model.coreFrom - 1, model.coreTo);
+
+              var interpRec;
+              try {
+                interpRec = SV.Interpreter.run(coreLines, input.slice(), A.watchVars);
+              } catch (e) {
+                throw new Error(pid + ' n=' + n + ' でインタプリタが失敗: ' + e.message +
+                  (e.atLine ? '（' + e.atLine + '行目）' : ''));
+              }
+              assert(isSorted(interpRec.a), pid + ' n=' + n + ' がインタプリタ実行後に昇順になっていない');
+              assert(samePermutation(interpRec.a, input), pid + ' n=' + n + ' で要素が変わった');
+
+              var handRec = runAlgo(id, input).rec;
+              assert(interpRec.compare === handRec.compare,
+                pid + ' n=' + n + ': インタプリタ比較=' + interpRec.compare + ' / generate比較=' + handRec.compare +
+                '（比較回数は行単位で1:1対応するはずなので、生成と解釈がズレている）');
+              count++;
+            });
+          });
+          return count + ' ケース';
+        });
+      }
     });
 
     /* (h) 理論値との整合 — 計算量の説明が嘘にならないことを担保する */

@@ -12,6 +12,9 @@ SV.algorithms.quick = {
   id: 'quick',
   name: 'クイックソート',
   tier: 'advanced',
+  // 手続きが2つ（呼び出し役とQuickSort本体）に分かれ、再帰もするため、
+  // 「編集して実行」の簡易インタプリタは対応していない（単一Sub・非再帰専用）。
+  supportsInterpreter: false,
   summary: '基準（ピボット）を1つ決め、それより小さい値を左へ、大きい値を右へ分ける。分かれた左右をそれぞれ同じ方法でさらに分ける（再帰）。',
   watchVars: ['lo', 'hi', 'pivot', 'i', 'j'],
   order: '平均 O(n log n) / 最悪 O(n\u00B2)',

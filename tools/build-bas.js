@@ -25,11 +25,12 @@ vm.createContext(sandbox);
 [
   'js/vba.js', 'js/recorder.js',
   'js/algorithms/bubble.js', 'js/algorithms/selection.js',
-  'js/algorithms/insertion.js', 'js/algorithms/shell.js', 'js/algorithms/quick.js'
+  'js/algorithms/insertion.js', 'js/algorithms/shell.js', 'js/algorithms/quick.js',
+  'js/algorithms/merge.js', 'js/algorithms/heap.js'
 ].forEach(f => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox, { filename: f }));
 
 const DASH = String.fromCharCode(0x2015); // ― CP932で符号化できる全角ダッシュ（emダッシュ U+2014は不可）
-const ORDER = ['bubble', 'selection', 'insertion', 'shell', 'quick'];
+const ORDER = ['bubble', 'selection', 'insertion', 'shell', 'quick', 'merge', 'heap'];
 
 function moduleFor(id) {
   const A = sandbox.SV.algorithms[id];
@@ -39,9 +40,13 @@ function moduleFor(id) {
   // 配列サイズと件数を、A列の実データからその場で数える形に書き換える。
   // ReDim は n を求めた「あと」に置かないと a(-1) になるので、
   // 'n = 20' の行そのものを「n を数える行 + ReDim」に差し替える。
+  // マージソートは作業用配列 w(19) も同じ本数で持つので、あれば一緒に直す。
   text = text.split('Dim a(19) As Long').join('Dim a() As Long');
+  text = text.split('Dim w(19) As Long').join('Dim w() As Long');
+  const hasW = text.indexOf('Dim w() As Long') >= 0;
   text = text.split('n = 20').join(
-    'n = Cells(Rows.Count, 1).End(xlUp).Row\r\n    ReDim a(n - 1)'
+    'n = Cells(Rows.Count, 1).End(xlUp).Row\r\n    ReDim a(n - 1)' +
+    (hasW ? '\r\n    ReDim w(n - 1)' : '')
   );
   text = text.split('A列（A1〜A20）の数値を配列 a に読み込む')
              .join('A列（A1から、データがある分だけ）の数値を配列 a に読み込む');

@@ -43,8 +43,11 @@ window.SV = window.SV || {};
   };
 
   /* line: VBAの行番号 / mark: { compare, swap, cursor: number[], pivot: number }
-   * narration: 日本語の実況1行 */
-  Recorder.prototype.step = function (line, mark, narration) {
+   * narration: 日本語の実況1行
+   * extra: 画面の配列 a にはまだ反映されていないが、値としては消えていない退避中の
+   *        生値の配列（例: マージソートの作業用配列 w のうち、まだ a へ書き戻していない部分）。
+   *        単純な swap 系アルゴリズムの tmp 1個だけなら vars.tmp で足りるので省略してよい。 */
+  Recorder.prototype.step = function (line, mark, narration, extra) {
     if (this.steps.length >= MAX_STEPS) {
       throw new Error('ステップ数が上限（' + MAX_STEPS + '）を超えました。棒の本数を減らしてください。');
     }
@@ -65,7 +68,8 @@ window.SV = window.SV || {};
       sorted: this.sorted.slice(),
       vars: vars,
       counters: { compare: this.compare, swap: this.swap },
-      narration: narration || ''
+      narration: narration || '',
+      extra: extra ? extra.slice() : []
     });
   };
 
