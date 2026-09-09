@@ -1,0 +1,118 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: Cobalt
+ * enrichment: none — 可視化そのものが成果物 · nav: N9 edge-aligned · footer: Ft2 inline
+ * tone: technical / calm · anchor hue: electric cobalt 256
+ * deviation: Space Grotesk / Inter / JetBrains Mono を使わず system font stack を採用。
+ *            教室にネットワークが無くても file:// から動く必要があるため（外部依存ゼロが要件）。
+ * pre-emit critique: P5 H5 E4 S5 R4 V4
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ============================================================
+     フォント — Webフォントを読まない。日本語フォールバックを明示する。
+     ============================================================ */
+  --font-display: "Segoe UI Variable Display", "Segoe UI", "Yu Gothic UI",
+                  "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-body:    "Segoe UI", "Yu Gothic UI", "Hiragino Sans",
+                  "Noto Sans JP", system-ui, sans-serif;
+  --font-mono:    "Cascadia Mono", Consolas, "SF Mono", Menlo,
+                  "BIZ UDGothic", "MS Gothic", monospace;
+
+  /* ============================================================
+     紙とインク — Cobalt の冷たい near-white。純白も純黒も使わない。
+     ============================================================ */
+  --color-paper:      oklch(98.5% 0.004 250);
+  --color-paper-2:    oklch(96.4% 0.006 252);
+  --color-paper-3:    oklch(93.2% 0.008 253);
+
+  --color-graphite:   oklch(22% 0.016 260);
+  --color-graphite-2: oklch(27% 0.018 260);
+
+  --color-ink:        oklch(24% 0.020 258);
+  --color-ink-2:      oklch(34% 0.018 257);
+  --color-ink-3:      oklch(52% 0.015 256);
+
+  --color-on-dark:    oklch(93% 0.008 250);
+  --color-on-dark-2:  oklch(70% 0.012 252);
+  --color-on-dark-3:  oklch(54% 0.014 254);
+
+  --color-rule:       oklch(89% 0.008 253);
+  --color-rule-2:     oklch(79% 0.010 254);
+  --color-rule-dark:  oklch(34% 0.014 260);
+
+  /* ============================================================
+     ただ一つのシグナル — 電気コバルト。画面の 5% を超えて使わない。
+     ============================================================ */
+  --color-accent:      oklch(58% 0.20 256);
+  --color-accent-2:    oklch(49% 0.19 257);
+  --color-accent-ink:  oklch(99% 0.004 250);
+  --color-accent-wash: oklch(94.5% 0.033 254);
+  --color-focus:       oklch(52% 0.21 256);
+
+  /* ============================================================
+     棒グラフの5状態
+     明度を 80 → 70 → 58 → 45 → 33 と階段状に離してある。
+     プロジェクタで色が転んでも、白黒に潰れても、明度差だけで判別できる。
+     色相も全部離してあるので、色覚特性に依存しない。
+     ============================================================ */
+  --bar-idle:        oklch(80% 0.012 255);   /* 未処理     L80 */
+  --bar-idle-edge:   oklch(70% 0.014 255);
+  --bar-swap:        oklch(70% 0.165 55);    /* 交換中     L70 warm */
+  --bar-swap-edge:   oklch(60% 0.175 52);
+  --bar-compare:     oklch(58% 0.190 256);   /* 比較中     L58 cobalt */
+  --bar-compare-edge:oklch(49% 0.190 257);
+  --bar-sorted:      oklch(45% 0.100 165);   /* 確定済み   L45 teal */
+  --bar-sorted-edge: oklch(38% 0.095 166);
+  --bar-pivot:       oklch(33% 0.140 305);   /* ピボット   L33 violet */
+  --bar-pivot-edge:  oklch(27% 0.130 305);
+  --bar-cursor-ring: oklch(58% 0.19 256);
+
+  /* ============================================================
+     文字サイズ — 教室の後方から読める前提で 1 段大きめに取る。
+     ============================================================ */
+  --text-xs:      0.75rem;
+  --text-sm:      0.8125rem;
+  --text-base:    0.9375rem;
+  --text-md:      1.0625rem;
+  --text-lg:      1.25rem;
+  --text-xl:      1.5rem;
+  --text-2xl:     1.875rem;
+  --text-display: clamp(1.375rem, 1.1rem + 0.9vw, 1.875rem);
+  --text-code:    clamp(0.8125rem, 0.72rem + 0.32vw, 1rem);
+  --text-value:   clamp(0.625rem, 0.5rem + 0.42vw, 0.9375rem);
+  --text-narrate: clamp(0.9375rem, 0.84rem + 0.44vw, 1.25rem);
+  --text-counter: clamp(1.125rem, 0.95rem + 0.6vw, 1.625rem);
+
+  --tracking-tight: -0.02em;
+  --tracking-mono:  0.06em;
+
+  /* ============================================================
+     間隔 — 4pt スケール
+     ============================================================ */
+  --space-2xs: 0.25rem;
+  --space-xs:  0.5rem;
+  --space-sm:  0.75rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
+  --space-2xl: 3rem;
+
+  /* ============================================================
+     線と角 — 定規で引いた 1px。ゆるい pill にしない。
+     ============================================================ */
+  --rule-hair: 1px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* ============================================================
+     モーション — 最小限。3プリミティブまで。
+     ============================================================ */
+  --dur-1: 90ms;
+  --dur-2: 160ms;
+  --dur-3: 260ms;
+  --ease-out:    cubic-bezier(0.16, 1, 0.30, 1);
+  --ease-in:     cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}

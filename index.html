@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ソートの動きを見る — VBAで読むアルゴリズム</title>
+<meta name="description" content="ソートアルゴリズムの動きを棒グラフで見ながら、対応するVBAコードの実行行を追いかける授業用ツール。">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__brand">ソートの動きを見る<span class="topbar__sub">VBA</span></div>
+  <nav class="algos" id="algos" aria-label="アルゴリズムの選択"></nav>
+</header>
+
+<main class="workbench">
+
+  <section class="stage" aria-label="可視化">
+    <div class="stage__head">
+      <h1 class="stage__title" id="stageTitle">—</h1>
+      <p class="stage__summary" id="stageSummary"></p>
+    </div>
+
+    <div id="soloView">
+      <div class="chart" id="chart" role="img" aria-label="ソート中の配列の棒グラフ"></div>
+
+      <p class="narration" id="narration" aria-live="polite"></p>
+
+      <div class="transport">
+        <input class="seek" id="seek" type="range" min="0" max="0" value="0" step="1"
+               aria-label="ステップ位置">
+        <div class="transport__row">
+          <button class="btn btn--primary" id="btnPlay" type="button">▶ 再生</button>
+          <button class="btn btn--icon" id="btnPrev" type="button" aria-label="1ステップ戻る" title="1ステップ戻る（←）">◀1</button>
+          <button class="btn btn--icon" id="btnNext" type="button" aria-label="1ステップ進む" title="1ステップ進む（→）">1▶</button>
+          <button class="btn" id="btnReset" type="button" title="最初のステップへ">⏮ 最初へ</button>
+
+          <span class="transport__sep"></span>
+
+          <label class="field">速度
+            <input id="speed" type="range" min="1" max="120" value="12" step="1">
+            <output id="speedOut">12/秒</output>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="raceView" class="race" hidden>
+      <div class="race__lanes">
+        <div class="race__lane" data-lane="a">
+          <div class="race__head">
+            <select class="field" id="raceSelectA" aria-label="レース：左のアルゴリズム"></select>
+            <span class="race__status" id="raceStatusA"></span>
+          </div>
+          <div class="chart chart--race" id="raceChartA" role="img" aria-label="レース左側の棒グラフ"></div>
+          <div class="race__stats">
+            <span>step <b id="raceStepA">0</b> / <span id="raceTotalA">0</span></span>
+            <span>比較 <b id="raceCompareA">0</b></span>
+            <span>交換 <b id="raceSwapA">0</b></span>
+          </div>
+        </div>
+        <div class="race__lane" data-lane="b">
+          <div class="race__head">
+            <select class="field" id="raceSelectB" aria-label="レース：右のアルゴリズム"></select>
+            <span class="race__status" id="raceStatusB"></span>
+          </div>
+          <div class="chart chart--race" id="raceChartB" role="img" aria-label="レース右側の棒グラフ"></div>
+          <div class="race__stats">
+            <span>step <b id="raceStepB">0</b> / <span id="raceTotalB">0</span></span>
+            <span>比較 <b id="raceCompareB">0</b></span>
+            <span>交換 <b id="raceSwapB">0</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="race__controls">
+        <button class="btn btn--primary" id="raceBtnPlay" type="button">▶ レース開始</button>
+        <button class="btn" id="raceBtnReset" type="button">⏮ やり直す</button>
+        <span class="u-label">同じ初期データを、2つのアルゴリズムで同時に並べ替えます</span>
+      </div>
+    </div>
+
+    <div class="datasource">
+      <span class="u-label">データ</span>
+      <span id="presets" class="transport__row" role="group" aria-label="初期データのパターン"></span>
+      <label class="field">本数
+        <select id="count">
+          <option>8</option><option>10</option><option selected>12</option>
+          <option>16</option><option>20</option><option>24</option>
+          <option>30</option><option>40</option><option>50</option><option>60</option>
+        </select>
+      </label>
+      <button class="btn" id="btnShuffle" type="button">作り直す</button>
+      <button class="btn" id="btnRace" type="button" aria-pressed="false">🏁 2つ並べてレース</button>
+    </div>
+
+    <div class="legend" id="legend" aria-label="棒の色の意味"></div>
+  </section>
+
+  <aside class="inspector" aria-label="コードと状態">
+
+    <section class="panel panel--code">
+      <div class="panel__head">
+        <span class="u-label">VBA — 実行中の行</span>
+        <label class="field"><input type="checkbox" id="chkFull"> 読み込み・書き出しも表示</label>
+      </div>
+      <ol class="code" id="code"></ol>
+      <div class="transport__row">
+        <button class="btn btn--sm" id="btnCopy" type="button">コードをコピー</button>
+        <span class="u-label">VBE に貼り付けて F5</span>
+      </div>
+    </section>
+
+    <section class="panel panel--watch">
+      <div class="panel__head"><span class="u-label">変数ウォッチ</span></div>
+      <div class="watch" id="watch"></div>
+    </section>
+
+    <section class="panel panel--count">
+      <div class="panel__head"><span class="u-label">回数</span></div>
+      <div class="counters">
+        <div class="counter">
+          <span class="counter__k">比較</span>
+          <span class="counter__v" id="cntCompare">0</span>
+          <span class="counter__note" id="cntTheory"></span>
+        </div>
+        <div class="counter">
+          <span class="counter__k">交換</span>
+          <span class="counter__v" id="cntSwap">0</span>
+          <span class="counter__note">値を入れ替えた回数</span>
+        </div>
+        <div class="counter">
+          <span class="counter__k">計算量</span>
+          <span class="counter__v" id="cntOrder">—</span>
+          <span class="counter__note">最悪のとき</span>
+        </div>
+      </div>
+    </section>
+
+  </aside>
+</main>
+
+<footer class="foot">
+  <span>スペース＝再生／停止　←→＝1ステップ　R＝作り直す</span>
+  <span>画面のコードは <code>標準モジュール</code> に貼れば Excel でそのまま動きます（A列を読み、B列に書き出します）。</span>
+</footer>
+
+<script src="js/vba.js"></script>
+<script src="js/recorder.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/player.js"></script>
+<script src="js/race.js"></script>
+<script src="js/render.js"></script>
+<script src="js/algorithms/bubble.js"></script>
+<script src="js/algorithms/selection.js"></script>
+<script src="js/algorithms/insertion.js"></script>
+<script src="js/algorithms/shell.js"></script>
+<script src="js/algorithms/quick.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

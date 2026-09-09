@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自己検証 — ソートの動きを見る</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .tests { max-width: 68ch; margin: 0 auto; padding: var(--space-xl) var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
+  .tests__summary { font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 600; }
+  .tests__summary[data-ok="true"]  { color: var(--bar-sorted); }
+  .tests__summary[data-ok="false"] { color: var(--bar-swap-edge); }
+  .tests__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
+  .tests__item { display: grid; grid-template-columns: 5ch minmax(0, 1fr); gap: var(--space-xs);
+                 padding: var(--space-xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule);
+                 border-radius: var(--radius-md); background: var(--color-paper-2); }
+  .tests__mark { font-family: var(--font-mono); font-weight: 600; }
+  .tests__item[data-ok="true"]  .tests__mark { color: var(--bar-sorted); }
+  .tests__item[data-ok="false"] .tests__mark { color: var(--bar-swap-edge); }
+  .tests__item[data-ok="false"] { border-color: var(--bar-swap-edge); }
+  .tests__detail { display: block; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-ink-3); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__brand">自己検証<span class="topbar__sub">tests</span></div>
+  <nav class="algos"><a class="btn btn--sm" href="index.html">← アプリに戻る</a></nav>
+</header>
+
+<main class="tests">
+  <p class="tests__summary" id="summary">実行中…</p>
+  <ul class="tests__list" id="list"></ul>
+  <p class="u-label">この検証はネットワークに接続せず、このファイルを開くだけで走ります。</p>
+</main>
+
+<script src="js/vba.js"></script>
+<script src="js/recorder.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/algorithms/bubble.js"></script>
+<script src="js/algorithms/selection.js"></script>
+<script src="js/algorithms/insertion.js"></script>
+<script src="js/algorithms/shell.js"></script>
+<script src="js/algorithms/quick.js"></script>
+<script src="js/tests.js"></script>
+<script>
+(function () {
+  var results;
+  try {
+    results = SV.runTests();
+  } catch (e) {
+    document.getElementById('summary').textContent = '検証自体が落ちました: ' + e.message;
+    document.getElementById('summary').setAttribute('data-ok', 'false');
+    return;
+  }
+  var list = document.getElementById('list');
+  var pass = 0;
+  results.forEach(function (r) {
+    if (r.ok) pass++;
+    var li = document.createElement('li');
+    li.className = 'tests__item';
+    li.setAttribute('data-ok', String(r.ok));
+
+    var mark = document.createElement('span');
+    mark.className = 'tests__mark';
+    mark.textContent = r.ok ? 'PASS' : 'FAIL';
+
+    var body = document.createElement('span');
+    body.appendChild(document.createTextNode(r.name));
+    if (r.detail) {
+      var d = document.createElement('span');
+      d.className = 'tests__detail';
+      d.textContent = r.detail;
+      body.appendChild(d);
+    }
+    li.appendChild(mark);
+    li.appendChild(body);
+    list.appendChild(li);
+  });
+  var s = document.getElementById('summary');
+  s.textContent = pass + ' / ' + results.length + ' passed';
+  s.setAttribute('data-ok', String(pass === results.length));
+})();
+</script>
+</body>
+</html>

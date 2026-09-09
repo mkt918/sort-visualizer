@@ -1,0 +1,3 @@
+# .bas はCP932（Shift-JIS）でエンコードされたVBAソース。
+# UTF-8前提の改行コード自動変換やdiffの対象から外す。
+excel/SortDemo.bas -text -diff
