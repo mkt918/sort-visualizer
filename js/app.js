@@ -297,6 +297,8 @@
   function onRaceTick(lanes) {
     renderRaceLane(0, lanes[0]);
     renderRaceLane(1, lanes[1]);
+    SV.Sound.playForStep(lanes[0].steps[lanes[0].index]);
+    SV.Sound.playForStep(lanes[1].steps[lanes[1].index]);
   }
 
   function onRaceFinish(winner, lanes) {
@@ -328,9 +330,19 @@
     el.raceBtnPlay.textContent = '⏸ 一時停止';
   }
 
-  function toggleRace() {
-    state.raceOn = !state.raceOn;
-    el.btnRace.setAttribute('aria-pressed', String(state.raceOn));
+  /* mode: 'solo' | 'race'。トップバーの2択セグメントコントロールから呼ぶ。
+   * 同じモードを選び直したときは何もしない（前は単発トグルボタンだったが、
+   * 「今どちらのモードか」がボタン一つでは伝わりにくかったため2択にした）。 */
+  function setMode(mode) {
+    var wantRace = mode === 'race';
+    if (wantRace === state.raceOn) return;
+    state.raceOn = wantRace;
+
+    var buttons = el.modeSwitch.querySelectorAll('[data-mode]');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-mode') === mode));
+    }
+
     el.soloView.hidden = state.raceOn;
     el.raceView.hidden = !state.raceOn;
     el.algos.hidden = state.raceOn;
@@ -361,11 +373,21 @@
     el.seek.value = String(index);
     el.btnPrev.disabled = index <= 0;
     el.btnNext.disabled = index >= total - 1;
+    SV.Sound.playForStep(step);
   }
 
   function onPlayState(p) {
     el.btnPlay.textContent = p.playing ? '⏸ 一時停止' : '▶ 再生';
     el.btnPlay.setAttribute('aria-pressed', String(p.playing));
+  }
+
+  /* ---------------- 効果音（ポコッ） ---------------- */
+
+  function syncSoundButton() {
+    var on = SV.Sound.isEnabled();
+    el.btnSound.textContent = on ? '🔊' : '🔇';
+    el.btnSound.setAttribute('aria-pressed', String(on));
+    el.btnSound.title = '効果音のON/OFF（現在' + (on ? 'ON' : 'OFF') + '）';
   }
 
   /* ---------------- 速度（プリセットボタン） ----------------
@@ -442,11 +464,11 @@
 
   function init() {
     ['algos', 'presets', 'stageTitle', 'stageSummary', 'chart', 'narration',
-     'seek', 'btnPlay', 'btnPrev', 'btnNext', 'btnReset', 'speedSet',
+     'seek', 'btnPlay', 'btnPrev', 'btnNext', 'btnReset', 'speedSet', 'btnSound',
      'count', 'btnShuffle', 'code', 'chkFull', 'btnCopy', 'watch',
      'codeEdit', 'codeError', 'editHint', 'btnEditToggle', 'btnRunEdited', 'btnEditReset',
      'cntCompare', 'cntSwap', 'cntSwapLabel', 'cntSwapNote', 'cntTheory', 'cntOrder', 'legend',
-     'soloView', 'raceView', 'inspector', 'workbench', 'btnRace',
+     'soloView', 'raceView', 'inspector', 'workbench', 'modeSwitch',
      'raceSelectA', 'raceSelectB', 'raceStatusA', 'raceStatusB',
      'raceChartA', 'raceChartB', 'raceStepA', 'raceStepB',
      'raceTotalA', 'raceTotalB', 'raceCompareA', 'raceCompareB',
@@ -473,7 +495,20 @@
     el.btnEditToggle.addEventListener('click', enterEditMode);
     el.btnRunEdited.addEventListener('click', runEditedCode);
     el.btnEditReset.addEventListener('click', resetEditedCode);
-    el.btnRace.addEventListener('click', toggleRace);
+    el.modeSwitch.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-mode]') : null;
+      if (btn) setMode(btn.getAttribute('data-mode'));
+    });
+    el.btnSound.addEventListener('click', function () {
+      SV.Sound.setEnabled(!SV.Sound.isEnabled());
+      syncSoundButton();
+    });
+
+    // 効果音の初期化（AudioContextの生成・再開）はブラウザの自動再生制限により
+    // ユーザー操作がないとできない。どのボタンを最初に押しても解除されるよう、
+    // クリックをまとめて拾っておく（何度呼んでも安全・軽量な処理）。
+    document.addEventListener('click', function () { SV.Sound.unlock(); }, true);
+    syncSoundButton();
 
     el.raceBtnPlay.addEventListener('click', function () {
       if (race.playing) {

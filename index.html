@@ -11,6 +11,10 @@
 
 <header class="topbar">
   <div class="topbar__brand">ソートの動きを見る<span class="topbar__sub">VBA</span></div>
+  <div class="mode-switch" id="modeSwitch" role="group" aria-label="表示モード">
+    <button class="btn btn--sm" type="button" data-mode="solo" aria-pressed="true">▶ ソロ</button>
+    <button class="btn btn--sm" type="button" data-mode="race" aria-pressed="false">🏁 レース</button>
+  </div>
   <nav class="algos" id="algos" aria-label="アルゴリズムの選択"></nav>
 </header>
 
@@ -30,23 +34,28 @@
       <div class="transport">
         <input class="seek" id="seek" type="range" min="0" max="0" value="0" step="1"
                aria-label="ステップ位置">
-        <div class="transport__row">
-          <button class="btn btn--primary" id="btnPlay" type="button">▶ 再生</button>
-          <button class="btn btn--icon" id="btnPrev" type="button" aria-label="1ステップ戻る" title="1ステップ戻る（←）">◀1</button>
-          <button class="btn btn--icon" id="btnNext" type="button" aria-label="1ステップ進む" title="1ステップ進む（→）">1▶</button>
-          <button class="btn" id="btnReset" type="button" title="最初のステップへ">⏮ 最初へ</button>
 
-          <span class="transport__sep"></span>
-
-          <div class="speedset" id="speedSet" role="group" aria-label="再生速度（1秒あたりのステップ数）">
+        <div class="control-group">
+          <div class="transport__row">
+            <button class="btn btn--primary" id="btnPlay" type="button">▶ 再生</button>
+            <button class="btn btn--icon" id="btnPrev" type="button" aria-label="1ステップ戻る" title="1ステップ戻る（←）">◀1</button>
+            <button class="btn btn--icon" id="btnNext" type="button" aria-label="1ステップ進む" title="1ステップ進む（→）">1▶</button>
+            <button class="btn" id="btnReset" type="button" title="最初のステップへ">⏮ 最初へ</button>
+            <span class="transport__sep"></span>
+            <button class="btn btn--icon" id="btnSound" type="button" aria-pressed="true"
+                    title="効果音のON/OFF">🔊</button>
+          </div>
+          <div class="transport__row">
             <span class="u-label">速度</span>
-            <button class="btn btn--sm" type="button" data-speed="1">1</button>
-            <button class="btn btn--sm" type="button" data-speed="2">2</button>
-            <button class="btn btn--sm" type="button" data-speed="4">4</button>
-            <button class="btn btn--sm" type="button" data-speed="8" aria-pressed="true">8</button>
-            <button class="btn btn--sm" type="button" data-speed="16">16</button>
-            <button class="btn btn--sm" type="button" data-speed="32">32</button>
-            <button class="btn btn--sm" type="button" data-speed="64">64</button>
+            <div class="speedset" id="speedSet" role="group" aria-label="再生速度（1秒あたりのステップ数）">
+              <button class="btn btn--sm" type="button" data-speed="1">1</button>
+              <button class="btn btn--sm" type="button" data-speed="2">2</button>
+              <button class="btn btn--sm" type="button" data-speed="4">4</button>
+              <button class="btn btn--sm" type="button" data-speed="8" aria-pressed="true">8</button>
+              <button class="btn btn--sm" type="button" data-speed="16">16</button>
+              <button class="btn btn--sm" type="button" data-speed="32">32</button>
+              <button class="btn btn--sm" type="button" data-speed="64">64</button>
+            </div>
             <span class="u-label">step/秒</span>
           </div>
         </div>
@@ -87,18 +96,21 @@
       </div>
     </div>
 
-    <div class="datasource">
-      <span class="u-label">データ</span>
-      <span id="presets" class="transport__row" role="group" aria-label="初期データのパターン"></span>
-      <label class="field">本数
-        <select id="count">
-          <option>8</option><option>10</option><option selected>12</option>
-          <option>16</option><option>20</option><option>24</option>
-          <option>30</option><option>40</option><option>50</option><option>60</option>
-        </select>
-      </label>
-      <button class="btn" id="btnShuffle" type="button">作り直す</button>
-      <button class="btn" id="btnRace" type="button" aria-pressed="false">🏁 2つ並べてレース</button>
+    <div class="control-group datasource">
+      <div class="control-group__head"><span class="u-label">初期データ</span></div>
+      <div class="transport__row">
+        <span id="presets" class="transport__row" role="group" aria-label="初期データのパターン"></span>
+      </div>
+      <div class="transport__row">
+        <label class="field">本数
+          <select id="count">
+            <option>8</option><option>10</option><option selected>12</option>
+            <option>16</option><option>20</option><option>24</option>
+            <option>30</option><option>40</option><option>50</option><option>60</option>
+          </select>
+        </label>
+        <button class="btn btn--sm" id="btnShuffle" type="button">作り直す</button>
+      </div>
     </div>
 
     <div class="legend" id="legend" aria-label="棒の色の意味"></div>
@@ -166,6 +178,7 @@
 <script src="js/race.js"></script>
 <script src="js/render.js"></script>
 <script src="js/interpreter.js"></script>
+<script src="js/sound.js"></script>
 <script src="js/algorithms/bubble.js"></script>
 <script src="js/algorithms/selection.js"></script>
 <script src="js/algorithms/insertion.js"></script>
