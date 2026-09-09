@@ -546,6 +546,130 @@ h1, h2, h3 {
 
 .race__controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 
+/* datasource・legend は .stage/.inspector/.studio のどれとも独立して、
+   常に画面下部にフル幅で表示する（3モード共通の設定パネルなので）。 */
+.datasource, .legend { grid-column: 1 / -1; }
+
+/* ============================================================
+   じぶんで書く（スタジオ） — コードを左の主役にする
+   ============================================================ */
+.workbench.is-studio { grid-template-columns: minmax(0, 1fr); }
+
+.studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 32vw, 440px);
+  gap: 0;
+  grid-column: 1 / -1;
+  align-items: stretch;
+}
+
+.studio__code {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  min-width: 0;
+}
+
+.studio__view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border-left: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-2);
+  min-width: 0;
+}
+
+.studio__missionbar { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+.studio__missionbar select { flex: 1 1 auto; min-width: 0; font-size: var(--text-md); min-height: 44px; }
+
+.studio__prompt { margin: 0; color: var(--color-ink-2); font-size: var(--text-base); line-height: 1.6; }
+
+.studio__starters, .studio__palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.studio__editorwrap { position: relative; min-height: 200px; }
+.studio__editor { min-height: 260px; }
+.studio__codeview { max-height: none; min-height: 260px; }
+
+.studio__hint {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-wash);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+
+/* ---- 予測変換ポップアップ ---- */
+.editor-suggest {
+  position: absolute;
+  z-index: 50;
+  min-width: 220px;
+  max-width: 340px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--color-graphite);
+  border: var(--rule-hair) solid var(--color-rule-dark);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 14px oklch(24% 0.02 258 / 0.25);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.editor-suggest__item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xs);
+  cursor: pointer;
+  color: var(--color-on-dark);
+  white-space: nowrap;
+}
+
+.editor-suggest__item.is-active { background: var(--color-accent); color: var(--color-accent-ink); }
+.editor-suggest__name { font-weight: 600; }
+.editor-suggest__desc {
+  color: var(--color-on-dark-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-suggest__item.is-active .editor-suggest__desc { color: var(--color-accent-ink); opacity: 0.85; }
+
+/* ---- 判定パネル ---- */
+.studio__judge {
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  border: var(--rule-hair) solid var(--color-rule);
+}
+.studio__judge[data-ok="true"] {
+  background: color-mix(in oklch, var(--bar-sorted) 14%, var(--color-paper));
+  border-color: var(--bar-sorted-edge);
+}
+.studio__judge[data-ok="false"] {
+  background: color-mix(in oklch, var(--bar-swap) 16%, var(--color-paper));
+  border-color: var(--bar-swap-edge);
+}
+.studio__judge-message { margin: 0 0 var(--space-2xs); font-weight: 600; color: var(--color-ink); }
+.studio__judge-cases { margin: 0; padding-left: 1.1em; font-size: var(--text-xs); color: var(--color-ink-3); }
+.studio__judge-cases li[data-ok="false"] { color: var(--bar-swap-edge); }
+
+/* ---- 回数比較テーブル ---- */
+.studio__compare-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-sm); }
+.studio__compare-table th, .studio__compare-table td {
+  padding: var(--space-2xs) var(--space-xs);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  text-align: right;
+}
+.studio__compare-table th:first-child, .studio__compare-table td:first-child { text-align: left; }
+.studio__compare-table tr.is-you td { font-weight: 600; color: var(--color-accent-2); }
+
 /* ============================================================
    レスポンシブ
    ============================================================ */
@@ -553,6 +677,8 @@ h1, h2, h3 {
   .workbench { grid-template-columns: minmax(0, 1fr); }
   .inspector { border-left: 0; border-top: var(--rule-hair) solid var(--color-rule); }
   .algos { margin-left: 0; width: 100%; }
+  .studio { grid-template-columns: minmax(0, 1fr); }
+  .studio__view { border-left: 0; border-top: var(--rule-hair) solid var(--color-rule); }
 }
 
 @media (max-width: 700px) {
@@ -560,13 +686,16 @@ h1, h2, h3 {
 }
 
 @media (max-width: 560px) {
-  .topbar, .stage, .inspector, .foot { padding-left: var(--space-md); padding-right: var(--space-md); }
+  .topbar, .stage, .inspector, .studio__code, .studio__view, .foot {
+    padding-left: var(--space-md); padding-right: var(--space-md);
+  }
   .chart { height: clamp(180px, 34vh, 300px); }
   .field input[type="range"] { width: 88px; }
   .algos__group + .algos__group { margin-left: 0; padding-left: 0; border-left: 0; }
   .code { max-height: 40vh; }
   .watch { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
   .counters { grid-template-columns: 1fr 1fr; }
+  .studio__editor, .studio__codeview { min-height: 180px; }
 }
 
 /* タッチ操作の端末（スマホ・タブレット）では、幅に関係なく指で押せる大きさを確保する。

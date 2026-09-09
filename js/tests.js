@@ -241,6 +241,178 @@ window.SV = window.SV || {};
       return 'ほぼ整列 ' + nearly + ' 回 < 逆順 ' + rev + ' 回';
     });
 
+    /* ============================================================
+       「じぶんで書く」モード向けに拡張したインタプリタの検証
+       ============================================================ */
+
+    check('インタプリタ · And / Or / Not が評価できる', function () {
+      var r1 = SV.Interpreter.run(
+        ['If a(0) > 0 And a(1) > 0 Then x = 1', 'If a(0) > 100 Or a(1) > 0 Then x = 2', 'If Not (a(0) > 100) Then x = 3'],
+        [5, 5], ['x']);
+      assert(r1.vars.x === 3, 'And/Or/Not の組み合わせが期待通りに評価されていない: x=' + r1.vars.x);
+      return 'OK';
+    });
+
+    check('インタプリタ · And/Or は短絡評価しない（実際のVBAと同じ挙動）', function () {
+      // j = -1 のとき、j >= 0 が false でも a(j) が評価されて範囲外エラーになる。
+      // これは実物のExcel VBAでも同じ、有名な仕様。短絡評価してしまうバグの再発を防ぐ。
+      var threw = false, msg = '';
+      try {
+        SV.Interpreter.run(['j = -1', 'If j >= 0 And a(j) > 0 Then x = 1'], [5], ['j', 'x']);
+      } catch (e) { threw = true; msg = e.message; }
+      assert(threw, '範囲外アクセスが検出されなかった（短絡評価にすり替わっている）');
+      assert(msg.indexOf('範囲外') >= 0, 'エラー内容が範囲外エラーではない: ' + msg);
+      return 'OK';
+    });
+
+    check('インタプリタ · Exit For がいちばん内側の For を抜ける', function () {
+      var r = SV.Interpreter.run(
+        ['For i = 0 To 9', '    If i = 3 Then Exit For', 'Next i'],
+        [1, 2, 3], ['i']);
+      assert(r.vars.i === 3, 'Exit For 後の i が期待と違う: ' + r.vars.i);
+      return 'OK';
+    });
+
+    check('インタプリタ · While〜Wend が Do While〜Loop と同じ結果になる', function () {
+      var input = SV.presets.make('random', 8);
+      var r1 = SV.Interpreter.run(['i = 0', 'Do While i < n', '    i = i + 1', 'Loop'], input.slice(), ['i']);
+      var r2 = SV.Interpreter.run(['i = 0', 'While i < n', '    i = i + 1', 'Wend'], input.slice(), ['i']);
+      assert(r1.vars.i === r2.vars.i, 'Do/While と While/Wend で結果が違う');
+      assert(r1.vars.i === input.length, '最終的な i が本数と一致しない');
+      return 'OK';
+    });
+
+    check('インタプリタ · While〜Wend の中では Exit Do が使えない（実際のVBAの仕様）', function () {
+      var threw = false;
+      try {
+        SV.Interpreter.run(['i = 0', 'While i < 10', '    If i = 3 Then Exit Do', '    i = i + 1', 'Wend'], [1], ['i']);
+      } catch (e) { threw = true; }
+      assert(threw, 'While〜Wend の中で Exit Do が通ってしまった（実際のVBAでは構文として不成立）');
+      return 'OK';
+    });
+
+    check('インタプリタ · If ... Then Exit For / Exit Do の1行形式が使える', function () {
+      var r1 = SV.Interpreter.run(['For i = 0 To 9', '    If i = 2 Then Exit For', 'Next i'], [1], ['i']);
+      assert(r1.vars.i === 2, '1行形式の Exit For が効いていない');
+      var r2 = SV.Interpreter.run(['i = 0', 'Do While i < 10', '    If i = 2 Then Exit Do', '    i = i + 1', 'Loop'], [1], ['i']);
+      assert(r2.vars.i === 2, '1行形式の Exit Do が効いていない');
+      return 'OK';
+    });
+
+    check('インタプリタ · 配列は a のみ。他の名前はエラーになる', function () {
+      var threw = false, msg = '';
+      try { SV.Interpreter.run(['x = w(0)'], [1, 2, 3], ['x']); }
+      catch (e) { threw = true; msg = e.message; }
+      assert(threw, 'w(0) のような未知の配列名がエラーにならなかった（沈黙バグの再発）');
+      assert(msg.indexOf('a しか使えません') >= 0, 'エラー文言が想定と違う: ' + msg);
+      return 'OK';
+    });
+
+    check('インタプリタ · 変数の自動抽出（collectVarNames）', function () {
+      var stmts = ['minIdx = 0', 'For i = 1 To n - 1', '    If a(i) < a(minIdx) Then minIdx = i', 'Next i']
+        .map(SV.Interpreter.parseStatement);
+      var names = SV.Interpreter.collectVarNames(stmts);
+      assert(names.indexOf('minIdx') >= 0 && names.indexOf('i') >= 0,
+        '想定した変数が抽出されていない: ' + JSON.stringify(names));
+      assert(names.indexOf('a') < 0 && names.indexOf('n') < 0,
+        'a や n は配列・本数側の予約語なので抽出対象から除くはず: ' + JSON.stringify(names));
+      return JSON.stringify(names);
+    });
+
+    check('インタプリタ · watchVars 省略時は自動抽出で実行できる', function () {
+      var lines = ['minIdx = 0', 'For i = 1 To n - 1', '    If a(i) < a(minIdx) Then minIdx = i', 'Next i'];
+      var input = [5, 2, 8, 1, 9];
+      var r = SV.Interpreter.run(lines, input); // watchVars を渡さない
+      var trueMin = input.indexOf(Math.min.apply(null, input));
+      assert(r.vars.minIdx === trueMin, 'minIdx=' + r.vars.minIdx + '（期待 ' + trueMin + '）');
+      return 'OK';
+    });
+
+    check('インタプリタ · 比較カウントは配列要素を含む cmp だけ（j >= 0 は数えない）', function () {
+      // Do While の条件そのものに配列要素を含むケースが、以前は0回にバグっていた。
+      var r = SV.Interpreter.run(['i = 0', 'Do While a(i) < 100', '    i = i + 1', 'Loop'], [1, 2, 3, 200], ['i']);
+      assert(r.compare === 4, 'a(i)<100 の判定回数が期待と違う: ' + r.compare + '（期待 4）');
+
+      // i < 3 のような添字チェックそのものは数えない、というのを And 越しでも確認する。
+      // （上限方向のチェックなので、非短絡評価でも配列の範囲外に踏み込まない安全な形にしている。
+      //   j >= 0 のような下限チェックを And で組むと、j が負に達したとき a(j) が範囲外エラーに
+      //   なる——これは別のテストで意図的に確認している、実際のVBAの仕様どおりの挙動）。
+      var r2 = SV.Interpreter.run(
+        ['i = 0', 'Do While i < 3 And a(i) > 0', '    i = i + 1', 'Loop'],
+        [1, 1, 1, 0], ['i']);
+      assert(r2.compare === 4, '配列を含む比較だけを数えていない: compare=' + r2.compare + '（期待 4）');
+      assert(r2.vars.i === 3, 'ループの終わり方が想定と違う: i=' + r2.vars.i);
+      return 'OK';
+    });
+
+    check('インタプリタ · 代入した変数がその場でウォッチに反映される（for/nextを介さない代入）', function () {
+      // tmp = a(j) のような単純代入が、次の For/Next の同期まで古い値を表示し続ける、
+      // という表示遅延バグが無いことを確認する（rec.vars への即時反映）。
+      var r = SV.Interpreter.run(['tmp = a(0)'], [42], ['tmp']);
+      assert(r.vars.tmp === 42, '代入直後の変数が rec.vars に反映されていない: ' + r.vars.tmp);
+      return 'OK';
+    });
+
+    check('インタプリタ · fast モードは steps を記録せず最終結果だけ返す', function () {
+      var lines = ['For i = 0 To n - 2', '    For j = 0 To n - 2 - i', '        If a(j) > a(j + 1) Then',
+                   '            tmp = a(j)', '            a(j) = a(j + 1)', '            a(j + 1) = tmp',
+                   '        End If', '    Next j', 'Next i'];
+      var input = SV.presets.make('reversed', 12);
+      var rFast = SV.Interpreter.run(lines.slice(), input.slice(), ['i', 'j', 'tmp'], { fast: true });
+      var rFull = SV.Interpreter.run(lines.slice(), input.slice(), ['i', 'j', 'tmp']);
+      assert(rFast.steps.length === 0, 'fast モードなのに steps が記録されている: ' + rFast.steps.length);
+      assert(isSorted(rFast.a), 'fast モードの最終結果が昇順になっていない');
+      assert(rFast.compare === rFull.compare && rFast.swap === rFull.swap,
+        'fast モードと通常モードで回数が違う: fast=' + rFast.compare + '/' + rFast.swap +
+        ' full=' + rFull.compare + '/' + rFull.swap);
+      return 'compare=' + rFast.compare + ' swap=' + rFast.swap;
+    });
+
+    /* ============================================================
+       「じぶんで書く」モードのミッション判定
+       ============================================================ */
+
+    if (SV.Missions) {
+      var MISSION_TEST_VALUES = [5, 3, 8, 1, 9, 2, 7, 4, 6, 0];
+
+      SV.Missions.list.forEach(function (m) {
+        /* 模範解答が合格すること。判定関数のバグで「生徒が正解しているのに
+         * 不合格になる」のが最悪のケースなので、全ミッションで必須の検証にする。 */
+        check('ミッション' + m.order + ' · 模範解答が合格する（' + m.title + '）', function () {
+          var r = m.judge(m.answer, MISSION_TEST_VALUES.slice());
+          assert(r.ok, '模範解答が不合格: ' + r.message +
+            (r.cases ? ' / ' + r.cases.filter(function (c) { return !c.ok; })
+              .map(function (c) { return c.label + ':' + c.reason; }).join(' | ') : ''));
+          return r.message;
+        });
+
+        /* 何もしない（空）コードは、自明に整列済みなデータ以外では不合格になること。
+         * 判定がゆるすぎて何でも合格してしまう、という逆方向のバグを防ぐ。 */
+        check('ミッション' + m.order + ' · 空のコードは不合格になる', function () {
+          var r = m.judge([''], MISSION_TEST_VALUES.slice());
+          assert(!r.ok, '空のコードなのに合格してしまった: ' + r.message);
+          return 'OK（' + r.message + '）';
+        });
+      });
+
+      check('ミッション4/5 · テストデータに1個・全部同じ値などの境界ケースを含む', function () {
+        var sets = SV.Missions.buildTestDatasets();
+        assert(sets.some(function (s) { return s.length === 1; }), '要素数1のケースが無い');
+        assert(sets.some(function (s) { return s.length >= 2 && s.every(function (v) { return v === s[0]; }); }),
+          '全部同じ値のケースが無い');
+        return sets.length + ' 種類';
+      });
+
+      check('ミッション5 · compareCounts が既存アルゴリズムと比較できる', function () {
+        var cmp = SV.Missions.compareCounts(SV.Missions.get('m5').answer, MISSION_TEST_VALUES.slice());
+        assert(cmp.you && cmp.you.ok, 'あなたの結果が正しく並んでいない: ' + JSON.stringify(cmp.you));
+        assert(cmp.bubble && typeof cmp.bubble.compare === 'number', 'バブルソートとの比較が無い');
+        assert(cmp.selection && typeof cmp.selection.compare === 'number', '選択ソートとの比較が無い');
+        assert(cmp.quick && typeof cmp.quick.compare === 'number', 'クイックソートとの比較が無い');
+        return 'あなた: 比較' + cmp.you.compare + '/交換' + cmp.you.swap;
+      });
+    }
+
     return results;
   }
 

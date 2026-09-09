@@ -9,11 +9,16 @@ window.SV = window.SV || {};
 
   var MAX_STEPS = 60000;
 
-  function Recorder(values, watchVars) {
+  /* opts.fast: true にすると steps[] への記録（配列のスナップショット・変数の
+   * コピーなど）を丸ごと省く。最終結果（a・compare・swap）だけが要る採点・判定用の
+   * 高速実行で使う（「じぶんで書く」モードで複数のテストデータを一瞬で回すため）。 */
+  function Recorder(values, watchVars, opts) {
     this.a = values.slice();
     this.n = values.length;
     this.watchVars = (watchVars || []).slice();
     this.steps = [];
+    this.stepCount = 0;
+    this.fast = !!(opts && opts.fast);
     this.compare = 0;
     this.swap = 0;
     this.vars = {};
@@ -48,9 +53,11 @@ window.SV = window.SV || {};
    *        生値の配列（例: マージソートの作業用配列 w のうち、まだ a へ書き戻していない部分）。
    *        単純な swap 系アルゴリズムの tmp 1個だけなら vars.tmp で足りるので省略してよい。 */
   Recorder.prototype.step = function (line, mark, narration, extra) {
-    if (this.steps.length >= MAX_STEPS) {
-      throw new Error('ステップ数が上限（' + MAX_STEPS + '）を超えました。棒の本数を減らしてください。');
+    this.stepCount++;
+    if (this.stepCount > MAX_STEPS) {
+      throw new Error('ステップ数が上限（' + MAX_STEPS + '）を超えました。棒の本数を減らすか、無限ループになっていないか確認してください。');
     }
+    if (this.fast) return; // 記録を省く。カウンタ（compare/swap）や a・vars への反映は呼び出し側で既に済んでいる
     mark = mark || {};
     var vars = {}, k;
     for (k = 0; k < this.watchVars.length; k++) {

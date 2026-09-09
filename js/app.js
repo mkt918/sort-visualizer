@@ -20,7 +20,7 @@
     showFullCode: false,
     editing: false,        // コード編集モード中か（textareaを表示しているか）
     editText: '',          // 最後に成功した／編集中のコアループのテキスト（アルゴリズム切替でリセット）
-    raceOn: false,
+    mode: 'solo',          // 'solo' | 'race' | 'studio'
     raceViewA: null,
     raceViewB: null
   };
@@ -109,7 +109,9 @@
 
   function newData() {
     state.values = SV.presets.make(state.presetId, state.n);
-    if (state.raceOn) rebuildRace(); else rebuild();
+    if (state.mode === 'race') rebuildRace();
+    else if (state.mode === 'studio') SV.Studio.onDataChanged(state.values);
+    else rebuild();
   }
 
   /* コード実行の結果（rec）と、それに対応するコード表示モデルを画面へ反映する。
@@ -334,26 +336,37 @@
    * 同じモードを選び直したときは何もしない（前は単発トグルボタンだったが、
    * 「今どちらのモードか」がボタン一つでは伝わりにくかったため2択にした）。 */
   function setMode(mode) {
-    var wantRace = mode === 'race';
-    if (wantRace === state.raceOn) return;
-    state.raceOn = wantRace;
+    if (mode === state.mode) return;
+    var prevMode = state.mode;
+    state.mode = mode;
 
     var buttons = el.modeSwitch.querySelectorAll('[data-mode]');
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-mode') === mode));
     }
 
-    el.soloView.hidden = state.raceOn;
-    el.raceView.hidden = !state.raceOn;
-    el.algos.hidden = state.raceOn;
-    el.inspector.hidden = state.raceOn;
-    el.workbench.classList.toggle('is-race', state.raceOn);
+    var isSolo = mode === 'solo', isRace = mode === 'race', isStudio = mode === 'studio';
 
-    if (state.raceOn) {
+    el.stage.hidden = isStudio;
+    el.soloView.hidden = !isSolo;
+    el.raceView.hidden = !isRace;
+    el.studioView.hidden = !isStudio;
+    el.algos.hidden = !isSolo;
+    el.inspector.hidden = !isSolo;
+    el.workbench.classList.toggle('is-race', isRace);
+    el.workbench.classList.toggle('is-studio', isStudio);
+
+    if (prevMode === 'studio') SV.Studio.onExit();
+
+    if (isRace) {
       player.pause();
       el.stageTitle.textContent = 'レース';
       el.stageSummary.textContent = '同じ初期データを、2つのアルゴリズムで同時に並べ替えます。';
       rebuildRace();
+    } else if (isStudio) {
+      player.pause();
+      race.pause();
+      SV.Studio.onEnter(state.values);
     } else {
       race.pause();
       rebuild();
@@ -446,17 +459,19 @@
     if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+    if (state.mode === 'studio') return; // スタジオ独自の操作系はクリックのみ（グローバルショートカットは持たない）
+
     if (e.code === 'Space') {
       e.preventDefault();
-      if (state.raceOn) {
+      if (state.mode === 'race') {
         if (race.playing) { race.pause(); el.raceBtnPlay.textContent = '▶ 再開'; }
         else { startRace(); }
       } else {
         player.toggle();
       }
     }
-    else if (!state.raceOn && e.key === 'ArrowLeft')  { e.preventDefault(); player.pause(); player.prev(); }
-    else if (!state.raceOn && e.key === 'ArrowRight') { e.preventDefault(); player.pause(); player.next(); }
+    else if (state.mode !== 'race' && e.key === 'ArrowLeft')  { e.preventDefault(); player.pause(); player.prev(); }
+    else if (state.mode !== 'race' && e.key === 'ArrowRight') { e.preventDefault(); player.pause(); player.next(); }
     else if (e.key === 'r' || e.key === 'R') { newData(); }
   }
 
@@ -468,7 +483,7 @@
      'count', 'btnShuffle', 'code', 'chkFull', 'btnCopy', 'watch',
      'codeEdit', 'codeError', 'editHint', 'btnEditToggle', 'btnRunEdited', 'btnEditReset',
      'cntCompare', 'cntSwap', 'cntSwapLabel', 'cntSwapNote', 'cntTheory', 'cntOrder', 'legend',
-     'soloView', 'raceView', 'inspector', 'workbench', 'modeSwitch',
+     'soloView', 'raceView', 'studioView', 'inspector', 'stage', 'workbench', 'modeSwitch',
      'raceSelectA', 'raceSelectB', 'raceStatusA', 'raceStatusB',
      'raceChartA', 'raceChartB', 'raceStepA', 'raceStepB',
      'raceTotalA', 'raceTotalB', 'raceCompareA', 'raceCompareB',

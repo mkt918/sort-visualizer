@@ -14,13 +14,14 @@
   <div class="mode-switch" id="modeSwitch" role="group" aria-label="表示モード">
     <button class="btn btn--sm" type="button" data-mode="solo" aria-pressed="true">▶ ソロ</button>
     <button class="btn btn--sm" type="button" data-mode="race" aria-pressed="false">🏁 レース</button>
+    <button class="btn btn--sm" type="button" data-mode="studio" aria-pressed="false">✎ じぶんで書く</button>
   </div>
   <nav class="algos" id="algos" aria-label="アルゴリズムの選択"></nav>
 </header>
 
 <main class="workbench">
 
-  <section class="stage" aria-label="可視化">
+  <section class="stage" id="stage" aria-label="可視化">
     <div class="stage__head">
       <h1 class="stage__title" id="stageTitle">—</h1>
       <p class="stage__summary" id="stageSummary"></p>
@@ -96,24 +97,6 @@
       </div>
     </div>
 
-    <div class="control-group datasource">
-      <div class="control-group__head"><span class="u-label">初期データ</span></div>
-      <div class="transport__row">
-        <span id="presets" class="transport__row" role="group" aria-label="初期データのパターン"></span>
-      </div>
-      <div class="transport__row">
-        <label class="field">本数
-          <select id="count">
-            <option>8</option><option>10</option><option selected>12</option>
-            <option>16</option><option>20</option><option>24</option>
-            <option>30</option><option>40</option><option>50</option><option>60</option>
-          </select>
-        </label>
-        <button class="btn btn--sm" id="btnShuffle" type="button">作り直す</button>
-      </div>
-    </div>
-
-    <div class="legend" id="legend" aria-label="棒の色の意味"></div>
   </section>
 
   <aside class="inspector" id="inspector" aria-label="コードと状態">
@@ -164,6 +147,96 @@
     </section>
 
   </aside>
+
+  <div id="studioView" class="studio" hidden>
+    <div class="studio__code">
+      <div class="studio__missionbar">
+        <select class="field" id="studioMissionSelect" aria-label="ミッションを選ぶ"></select>
+      </div>
+      <p class="studio__prompt" id="studioPrompt"></p>
+
+      <div class="studio__starters" id="studioStarters" role="group" aria-label="はじめかたを選ぶ">
+        <span class="u-label">はじめかた</span>
+        <button class="btn btn--sm" type="button" data-starter="blank">白紙から</button>
+        <button class="btn btn--sm" type="button" data-starter="skeleton">骨組みから</button>
+        <button class="btn btn--sm" type="button" data-starter="example">お手本を改造</button>
+      </div>
+
+      <div class="studio__editorwrap">
+        <textarea class="code-edit studio__editor" id="studioEditor" spellcheck="false"
+                  aria-label="じぶんで書くVBAコード"></textarea>
+        <ol class="code studio__codeview" id="studioCodeView" hidden></ol>
+      </div>
+      <p class="code-error" id="studioSyntaxError" hidden role="alert"></p>
+
+      <div class="studio__palette" id="studioPalette" role="group" aria-label="部品を挿入する"></div>
+
+      <div class="transport__row">
+        <button class="btn btn--sm" id="studioBtnHint" type="button" aria-pressed="false">💡 ヒント</button>
+        <span class="transport__sep"></span>
+        <button class="btn btn--sm" id="studioBtnCopy" type="button">コードをコピー</button>
+        <button class="btn btn--sm" id="studioBtnClear" type="button">保存内容を消す</button>
+        <button class="btn btn--sm btn--primary" id="studioBtnRun" type="button">▶ 実行して確かめる</button>
+      </div>
+      <p class="studio__hint" id="studioHintText" hidden></p>
+    </div>
+
+    <aside class="studio__view">
+      <div class="chart" id="studioChart" role="img" aria-label="あなたのコードで並べ替え中の棒グラフ"></div>
+
+      <div class="transport__row">
+        <button class="btn btn--icon" id="studioBtnPlay" type="button" aria-label="再生/一時停止">▶</button>
+        <button class="btn btn--icon" id="studioBtnPrev" type="button" aria-label="1ステップ戻る">◀1</button>
+        <button class="btn btn--icon" id="studioBtnNext" type="button" aria-label="1ステップ進む">1▶</button>
+      </div>
+      <input class="seek" id="studioSeek" type="range" min="0" max="0" value="0" step="1" aria-label="ステップ位置">
+
+      <p class="narration" id="studioNarration" aria-live="polite"></p>
+
+      <div class="panel__head"><span class="u-label">変数ウォッチ</span></div>
+      <div class="watch" id="studioWatch"></div>
+
+      <div class="counters">
+        <div class="counter">
+          <span class="counter__k">比較</span>
+          <span class="counter__v" id="studioCntCompare">0</span>
+        </div>
+        <div class="counter">
+          <span class="counter__k">書き込み</span>
+          <span class="counter__v" id="studioCntSwap">0</span>
+        </div>
+      </div>
+
+      <div class="studio__judge" id="studioJudge" hidden>
+        <p class="studio__judge-message" id="studioJudgeMessage"></p>
+        <ul class="studio__judge-cases" id="studioJudgeCases"></ul>
+      </div>
+
+      <div class="studio__compare" id="studioCompare" hidden>
+        <div class="control-group__head"><span class="u-label">既存アルゴリズムとの回数比較</span></div>
+        <table class="studio__compare-table" id="studioCompareTable"></table>
+      </div>
+    </aside>
+  </div>
+
+  <div class="control-group datasource" id="datasourcePanel">
+    <div class="control-group__head"><span class="u-label">初期データ</span></div>
+    <div class="transport__row">
+      <span id="presets" class="transport__row" role="group" aria-label="初期データのパターン"></span>
+    </div>
+    <div class="transport__row">
+      <label class="field">本数
+        <select id="count">
+          <option>8</option><option>10</option><option selected>12</option>
+          <option>16</option><option>20</option><option>24</option>
+          <option>30</option><option>40</option><option>50</option><option>60</option>
+        </select>
+      </label>
+      <button class="btn btn--sm" id="btnShuffle" type="button">作り直す</button>
+    </div>
+  </div>
+
+  <div class="legend" id="legend" aria-label="棒の色の意味"></div>
 </main>
 
 <footer class="foot">
@@ -186,6 +259,9 @@
 <script src="js/algorithms/quick.js"></script>
 <script src="js/algorithms/merge.js"></script>
 <script src="js/algorithms/heap.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/studio.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
