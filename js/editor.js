@@ -81,6 +81,8 @@ window.SV = window.SV || {};
   }
 
   function fireInput(el) {
+    // Node（DOMスタブ無し）では Event も document も無い。何もしないで抜ける。
+    if (typeof Event === 'undefined' && typeof document === 'undefined') return;
     var ev;
     try { ev = new Event('input', { bubbles: true }); }
     catch (e) { ev = document.createEvent('Event'); ev.initEvent('input', true, true); }
@@ -110,6 +112,36 @@ window.SV = window.SV || {};
   }
   var KEYWORDS_UP = ['FOR', 'TO', 'STEP', 'NEXT', 'IF', 'THEN', 'ELSE', 'END', 'DO', 'WHILE',
     'UNTIL', 'LOOP', 'WEND', 'EXIT', 'MOD', 'AND', 'OR', 'NOT', 'DIM', 'AS', 'LONG'];
+
+  /* 予測変換の候補を返す純関数（DOM非依存。テストで固める）。
+   *   word     … キャレット直前の打ちかけの語（currentWord().text）
+   *   varNames … コード中で既に使われている変数名（scanVarNames() の結果）
+   * 返り値は [{name, desc}] の配列。空配列なら「候補を出さない」。
+   *
+   * 重要な決定（今回のバグ修正の核心）:
+   *   - 1文字では絶対に出さない。i / j / n / a / k のような1文字変数が
+   *     キーワード（If, Next, And ...）の前方一致に片っ端から衝突して、
+   *     Enter が改行ではなく候補確定に化けるのを防ぐ。
+   *   - 並び順は「コード中の既存変数 → キーワード → 組み込み(a/n/tmp)」。
+   *     minIdx を打ちかけたら minIdx が Mod より先に出るべき。
+   *   - 最大5件（画面を覆う面積を減らす）。完全一致は出さない（邪魔なので）。 */
+  function suggest(word, varNames) {
+    if (!word || word.length < 2) return [];
+    var lower = word.toLowerCase();
+    var seen = {};
+    var out = [];
+    function tryAdd(name, desc) {
+      if (seen[name]) return;
+      if (name.toLowerCase().indexOf(lower) !== 0) return;
+      if (name.toLowerCase() === lower) return; // 完全一致まで打てたら出さない
+      seen[name] = true;
+      out.push({ name: name, desc: desc });
+    }
+    (varNames || []).forEach(function (v) { tryAdd(v, '（今のコードで使われている変数）'); });
+    ALL_KEYWORDS.forEach(function (kw) { tryAdd(kw, KEYWORD_INFO[kw]); });
+    ALL_BUILTINS.forEach(function (b) { tryAdd(b, BUILTIN_INFO[b]); });
+    return out.slice(0, 5);
+  }
 
   /* ============================================================
      ミラーdiv方式でキャレットのピクセル位置を求める
@@ -255,6 +287,28 @@ window.SV = window.SV || {};
     return true;
   }
 
+  /* keydown で「何をするか」だけを返す純関数（DOM非依存。テストで固める）。
+   *   mods = { shift: bool, popupOpen: bool }
+   * 返り値:
+   *   'newline'  … 改行する（Enter。候補が開いていても必ず改行。ここは何があっても守る）
+   *   'confirm'  … 先頭候補を確定する（候補が開いているときの Tab）
+   *   'indent'   … インデントを1段入れる（候補が閉じているときの Tab）
+   *   'outdent'  … インデントを1段戻す（Shift+Tab）
+   *   'close'    … 候補を閉じる（候補が開いているときの Esc）
+   *   null       … このキーは横取りしない（↑↓・その他すべて。preventDefault もしない）
+   *
+   * ↑↓を絶対に奪わない・Enter を絶対に奪わないのが今回の修正の要。 */
+  function keyAction(key, mods) {
+    mods = mods || {};
+    if (key === 'Enter') return 'newline';
+    if (key === 'Tab') {
+      if (mods.popupOpen) return 'confirm';
+      return mods.shift ? 'outdent' : 'indent';
+    }
+    if (key === 'Escape') return mods.popupOpen ? 'close' : null;
+    return null;
+  }
+
   /* ============================================================
      構文チェック（実行はしない。parseStatement + buildJumpMap だけ）
      ============================================================ */
@@ -293,14 +347,12 @@ window.SV = window.SV || {};
 
     var composing = false;
     var popupItems = [];
-    var popupIndex = -1;
     var popupWordStart = -1;
     var syntaxTimer = null;
 
     function closePopup() {
       popupEl.hidden = true;
       popupItems = [];
-      popupIndex = -1;
       popupWordStart = -1;
     }
 
@@ -308,7 +360,8 @@ window.SV = window.SV || {};
       popupEl.innerHTML = '';
       popupItems.forEach(function (item, i) {
         var row = document.createElement('div');
-        row.className = 'editor-suggest__item' + (i === popupIndex ? ' is-active' : '');
+        // 先頭候補（Tab で確定される候補）だけ強調する。↑↓での選択移動は廃止した。
+        row.className = 'editor-suggest__item' + (i === 0 ? ' is-active' : '');
         var name = document.createElement('span');
         name.className = 'editor-suggest__name';
         name.textContent = item.name;
@@ -319,11 +372,31 @@ window.SV = window.SV || {};
         row.appendChild(desc);
         row.addEventListener('mousedown', function (e) {
           e.preventDefault(); // textareaのフォーカス・選択を保持したままクリックさせる
-          popupIndex = i;
-          confirmPopup();
+          confirmPopup(i);
         });
         popupEl.appendChild(row);
       });
+      // 生徒は候補が開いていること自体に気づかないので、閉じ方を常に見せる。
+      var hint = document.createElement('div');
+      hint.className = 'editor-suggest__hint';
+      hint.textContent = 'Tab で入力 · Esc で閉じる';
+      popupEl.appendChild(hint);
+    }
+
+    /* textarea の下端をはみ出すなら、キャレット行の上に反転表示する
+       （部品パレット・「実行して確かめる」ボタンに被せない）。 */
+    function positionPopup(pos) {
+      var pt = mirror.measure(pos);
+      popupEl.style.left = pt.left + 'px';
+      popupEl.style.top = pt.top + 'px';
+      popupEl.hidden = false; // 高さを測るために先に表示する
+
+      var cs = window.getComputedStyle(textarea);
+      var lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
+      var taBottom = textarea.getBoundingClientRect().bottom + window.scrollY;
+      if (pt.top + popupEl.offsetHeight > taBottom) {
+        popupEl.style.top = (pt.top - lineHeight - popupEl.offsetHeight) + 'px';
+      }
     }
 
     function updatePopup() {
@@ -331,41 +404,20 @@ window.SV = window.SV || {};
       var pos = textarea.selectionStart;
       if (pos !== textarea.selectionEnd) { closePopup(); return; }
       var word = currentWord(textarea.value, pos);
-      if (word.text.length === 0) { closePopup(); return; }
-
-      var lower = word.text.toLowerCase();
-      var seen = {};
-      var candidates = [];
-
-      function tryAdd(name, desc) {
-        if (seen[name]) return;
-        if (name.toLowerCase().indexOf(lower) !== 0) return;
-        if (name.toLowerCase() === lower) return; // 完全一致まで打てたら出さない（邪魔なので）
-        seen[name] = true;
-        candidates.push({ name: name, desc: desc });
-      }
-
-      ALL_KEYWORDS.forEach(function (kw) { tryAdd(kw, KEYWORD_INFO[kw]); });
-      ALL_BUILTINS.forEach(function (b) { tryAdd(b, BUILTIN_INFO[b]); });
-      scanVarNames(textarea.value).forEach(function (v) { tryAdd(v, '（今のコードで使われている変数）'); });
-
+      var candidates = suggest(word.text, scanVarNames(textarea.value));
       if (candidates.length === 0) { closePopup(); return; }
-      candidates = candidates.slice(0, 8);
 
       popupItems = candidates;
-      popupIndex = 0;
       popupWordStart = word.start;
       renderPopup();
-
-      var pt = mirror.measure(pos);
-      popupEl.style.top = pt.top + 'px';
-      popupEl.style.left = pt.left + 'px';
-      popupEl.hidden = false;
+      positionPopup(pos);
     }
 
-    function confirmPopup() {
-      if (popupIndex < 0 || !popupItems[popupIndex]) return false;
-      var chosen = popupItems[popupIndex].name;
+    // 候補を確定する。index 省略時は先頭（Tab で確定される候補）。
+    function confirmPopup(index) {
+      if (typeof index !== 'number') index = 0;
+      if (!popupItems[index]) return false;
+      var chosen = popupItems[index].name;
       var value = textarea.value;
       var pos = textarea.selectionStart;
       var newValue = value.slice(0, popupWordStart) + chosen + value.slice(pos);
@@ -397,44 +449,21 @@ window.SV = window.SV || {};
     textarea.addEventListener('keydown', function (e) {
       if (e.isComposing || e.keyCode === 229) return; // IME変換中は一切横取りしない
 
-      if (!popupEl.hidden) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          popupIndex = Math.min(popupItems.length - 1, popupIndex + 1);
-          renderPopup();
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          popupIndex = Math.max(0, popupIndex - 1);
-          renderPopup();
-          return;
-        }
-        if (e.key === 'Tab' || e.key === 'Enter') {
-          e.preventDefault();
-          confirmPopup();
-          return;
-        }
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          closePopup();
-          return;
-        }
-      }
+      // 「何をするか」の判断は純関数 keyAction に集約してある（テスト可能にするため）。
+      // null が返るキー（↑↓・その他すべて）は preventDefault しない＝ブラウザ既定の動きに任せる。
+      var action = keyAction(e.key, { shift: e.shiftKey, popupOpen: !popupEl.hidden });
+      if (action === null) return;
 
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        handleTab(textarea, e.shiftKey);
+      e.preventDefault();
+      if (action === 'newline') {
         closePopup();
-        return;
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault();
         handleEnter(textarea);
+      } else if (action === 'confirm') {
+        confirmPopup(0);
+      } else if (action === 'indent' || action === 'outdent') {
         closePopup();
-        return;
-      }
-      if (e.key === 'Escape') {
+        handleTab(textarea, action === 'outdent');
+      } else if (action === 'close') {
         closePopup();
       }
     });
@@ -444,10 +473,14 @@ window.SV = window.SV || {};
       scheduleSyntaxCheck();
     });
 
-    textarea.addEventListener('blur', function () {
-      // クリックで確定させる余地を残すため、少し遅らせて閉じる
-      setTimeout(closePopup, 120);
-    });
+    // textarea の外を押したら即閉じる。blur の遅延クローズだと、その間に
+    // 押されたボタン（実行・パレット）が候補行の mousedown に吸われてしまう。
+    function onDocMousedown(e) {
+      if (popupEl.hidden) return;
+      if (popupEl.contains(e.target) || e.target === textarea) return;
+      closePopup();
+    }
+    document.addEventListener('mousedown', onDocMousedown, true);
     textarea.addEventListener('scroll', closePopup);
 
     return {
@@ -455,6 +488,7 @@ window.SV = window.SV || {};
       checkNow: function () { return checkSyntax(textarea.value); },
       destroy: function () {
         mirror.destroy();
+        document.removeEventListener('mousedown', onDocMousedown, true);
         if (popupEl.parentNode) popupEl.parentNode.removeChild(popupEl);
         if (syntaxTimer) clearTimeout(syntaxTimer);
       }
@@ -468,6 +502,8 @@ window.SV = window.SV || {};
     scanVarNames: scanVarNames,
     insertSnippet: insertSnippet,
     handleEnter: handleEnter,
-    handleTab: handleTab
+    handleTab: handleTab,
+    keyAction: keyAction,
+    suggest: suggest
   };
 })(window.SV);

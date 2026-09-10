@@ -642,6 +642,14 @@ h1, h2, h3 {
 }
 .editor-suggest__item.is-active .editor-suggest__desc { color: var(--color-accent-ink); opacity: 0.85; }
 
+/* 候補が開いていること自体に生徒は気づかないので、閉じ方を常に足元に見せる。 */
+.editor-suggest__hint {
+  padding: var(--space-2xs) var(--space-xs);
+  border-top: var(--rule-hair) solid var(--color-rule-dark);
+  color: var(--color-on-dark-3);
+  font-size: var(--text-xs);
+}
+
 /* ---- 判定パネル ---- */
 .studio__judge {
   padding: var(--space-sm);

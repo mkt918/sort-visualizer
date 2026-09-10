@@ -413,6 +413,122 @@ window.SV = window.SV || {};
       });
     }
 
+    /* ============================================================
+       「じぶんで書く」モードのエディタ支援（editor.js の純関数）
+
+       実機で「エディタに入力できない・ボタンも反応しない」という報告があった。
+       原因は、1文字打つだけで予測変換候補が開き、その状態で Enter/↑↓/Tab を
+       全部横取りしていたこと（Next i と打って Enter すると Next If に化ける等）。
+       ここが今回のバグ修正の本丸。keyAction / suggest を純関数に切り出したので
+       DOM 無しで固められる。
+       ============================================================ */
+
+    if (SV.Editor) {
+      var ED = SV.Editor;
+
+      /* handleEnter / handleTab 用の最小の偽 textarea */
+      var fakeTA = function (value, caret) {
+        if (caret === undefined) caret = value.length;
+        return {
+          value: value, selectionStart: caret, selectionEnd: caret,
+          focus: function () {}, dispatchEvent: function () {}
+        };
+      };
+
+      check('エディタ · 候補が開いていても Enter は必ず改行（Next i → Next If にならない）', function () {
+        assert(ED.keyAction('Enter', { popupOpen: true }) === 'newline', 'popup ありの Enter が newline でない');
+        assert(ED.keyAction('Enter', { popupOpen: false }) === 'newline', 'popup なしの Enter が newline でない');
+        return 'OK';
+      });
+
+      check('エディタ · ↑↓は予測変換に奪わせない（カーソル移動をブラウザに任せる）', function () {
+        assert(ED.keyAction('ArrowUp', { popupOpen: true }) === null, 'popup ありの ArrowUp が null でない');
+        assert(ED.keyAction('ArrowDown', { popupOpen: true }) === null, 'popup ありの ArrowDown が null でない');
+        assert(ED.keyAction('ArrowUp', { popupOpen: false }) === null, 'popup なしの ArrowUp が null でない');
+        return 'OK';
+      });
+
+      check('エディタ · Tab は候補ありで確定・候補なしでインデント', function () {
+        assert(ED.keyAction('Tab', { popupOpen: true }) === 'confirm', '候補ありの Tab が confirm でない');
+        assert(ED.keyAction('Tab', { popupOpen: false }) === 'indent', '候補なしの Tab が indent でない');
+        assert(ED.keyAction('Tab', { popupOpen: false, shift: true }) === 'outdent', 'Shift+Tab が outdent でない');
+        return 'OK';
+      });
+
+      check('エディタ · Esc は候補が開いているときだけ横取りする', function () {
+        assert(ED.keyAction('Escape', { popupOpen: true }) === 'close', '候補ありの Esc が close でない');
+        assert(ED.keyAction('Escape', { popupOpen: false }) === null, '候補なしの Esc が null でない');
+        return 'OK';
+      });
+
+      check('エディタ · 1文字の変数（i / j / n / a / k）では候補を出さない', function () {
+        ['i', 'j', 'n', 'a', 'k'].forEach(function (ch) {
+          assert(ED.suggest(ch, []).length === 0, '「' + ch + '」1文字で候補が出た');
+        });
+        return 'OK';
+      });
+
+      check('エディタ · 2文字以上で候補が出る（Fo→For、Wh→While）', function () {
+        var fo = ED.suggest('Fo', []);
+        assert(fo.length > 0 && fo[0].name === 'For', 'Fo の先頭候補が For でない: ' + JSON.stringify(fo));
+        var wh = ED.suggest('Wh', []).map(function (c) { return c.name; });
+        assert(wh.indexOf('While') >= 0, 'Wh の候補に While が無い: ' + wh.join(','));
+        return 'OK';
+      });
+
+      check('エディタ · 既存の変数名はキーワードより先に出る（mi → minIdx が Mod より先）', function () {
+        var s = ED.suggest('mi', ['minIdx']);
+        assert(s.length > 0 && s[0].name === 'minIdx', '先頭が minIdx でない: ' + JSON.stringify(s));
+        return 'OK';
+      });
+
+      check('エディタ · 打ち切った語は候補に出さない / 候補は5件まで', function () {
+        var s = ED.suggest('For', []).map(function (c) { return c.name; });
+        assert(s.indexOf('For') < 0, 'For と打ち切ったのに For が候補に出た');
+        assert(ED.suggest('xx', []).length === 0, '該当なしの語で候補が出た');
+        assert(ED.suggest('e', ['ea', 'eb', 'ec', 'ed', 'ee', 'ef']).length <= 5, '候補が5件を超えた');
+        return 'OK';
+      });
+
+      check('エディタ · Enter で For…To の後に Next 変数 が自動で入る', function () {
+        var ta = fakeTA('For i = 0 To n - 1');
+        ED.handleEnter(ta);
+        assert(/\n {4}\nNext i$/.test(ta.value), '想定と違う: ' + JSON.stringify(ta.value));
+        return 'OK';
+      });
+
+      check('エディタ · Enter で If…Then の後に End If が自動で入る', function () {
+        var ta = fakeTA('If a(i) > a(j) Then');
+        ED.handleEnter(ta);
+        assert(/\n {4}\nEnd If$/.test(ta.value), '想定と違う: ' + JSON.stringify(ta.value));
+        return 'OK';
+      });
+
+      check('エディタ · Enter で Do While→Loop、While→Wend が入る', function () {
+        var ta1 = fakeTA('Do While i < n');
+        ED.handleEnter(ta1);
+        assert(/\nLoop$/.test(ta1.value), 'Do While → Loop が入らない: ' + JSON.stringify(ta1.value));
+        var ta2 = fakeTA('While i < n');
+        ED.handleEnter(ta2);
+        assert(/\nWend$/.test(ta2.value), 'While → Wend が入らない: ' + JSON.stringify(ta2.value));
+        return 'OK';
+      });
+
+      check('エディタ · If … Then Exit For では End If を足さない', function () {
+        var ta = fakeTA('If i = 3 Then Exit For');
+        ED.handleEnter(ta);
+        assert(ta.value.indexOf('End If') < 0, 'End If を足してしまった: ' + JSON.stringify(ta.value));
+        return 'OK';
+      });
+
+      check('エディタ · Tab で4スペースのインデントが入る', function () {
+        var ta = fakeTA('x', 1);
+        ED.handleTab(ta, false);
+        assert(ta.value === 'x    ', '想定と違う: ' + JSON.stringify(ta.value));
+        return 'OK';
+      });
+    }
+
     return results;
   }
 
