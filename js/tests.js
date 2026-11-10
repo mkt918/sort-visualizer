@@ -529,6 +529,138 @@ window.SV = window.SV || {};
       });
     }
 
+    /* ============================================================
+       探索アルゴリズム（線形探索・二分探索）の検証
+       ============================================================ */
+
+    if (SV.searchAlgorithms) {
+      var SEARCH_CASES_N = [0, 1, 2, 3, 5, 8, 12, 20];
+
+      var runSearch = function (algoId, values, target) {
+        var A = SV.searchAlgorithms[algoId];
+        var model = SV.buildVba(A.vba(values.length, target));
+        var rec = new SV.Recorder(values.slice(), A.watchVars);
+        var found = A.generate(rec, model.lines, target);
+        return { A: A, model: model, rec: rec, found: found };
+      };
+
+      Object.keys(SV.searchAlgorithms).forEach(function (id) {
+        var A = SV.searchAlgorithms[id];
+
+        /* (a) 配列内のすべての値が、正しい index で見つかること */
+        check(A.name + ' · 配列内の値はすべて正しい位置で見つかる', function () {
+          var count = 0;
+          SEARCH_CASES_N.forEach(function (n) {
+            if (n === 0) return;
+            var values = [];
+            for (var i = 0; i < n; i++) values.push(i * 2); // 重複なし昇順（二分探索の前提）
+            values.forEach(function (target, idx) {
+              var r = runSearch(id, values, target);
+              assert(r.found === idx,
+                'n=' + n + ' target=' + target + ': found=' + r.found + '（期待 ' + idx + '）');
+              count++;
+            });
+          });
+          return count + ' ケース';
+        });
+
+        /* (b) 配列に無い値（最小未満・値の間・最大超過）は found=-1 になること */
+        check(A.name + ' · 配列に無い値は見つからない（found=-1）', function () {
+          var count = 0;
+          SEARCH_CASES_N.forEach(function (n) {
+            var values = [];
+            for (var i = 0; i < n; i++) values.push(i * 2);
+            [-1, 1, 1000].forEach(function (target) {
+              var r = runSearch(id, values, target);
+              assert(r.found === -1,
+                'n=' + n + ' target=' + target + ': found=' + r.found + '（期待 -1）');
+              count++;
+            });
+          });
+          return count + ' ケース';
+        });
+
+        /* (c) 行番号がVBAソースの有効行を指しているか */
+        check(A.name + ' · 全ステップの行番号がコードの実在行を指す', function () {
+          var values = [1, 3, 5, 7, 9, 11];
+          var r = runSearch(id, values, 7);
+          assert(r.rec.steps.length > 0, 'ステップが生成されていない');
+          r.rec.steps.forEach(function (s, k) {
+            assert(typeof s.line === 'number' && !isNaN(s.line),
+              'step ' + k + ' の line が数値でない（マーカー名の綴り違い）');
+            assert(s.line >= 1 && s.line <= r.model.lineCount,
+              'step ' + k + ' の line=' + s.line + ' が範囲外');
+          });
+          return r.rec.steps.length + ' ステップ';
+        });
+
+        /* (d) 比較のカウンタが減らないこと */
+        check(A.name + ' · 比較のカウンタが減らない', function () {
+          var values = [2, 4, 6, 8, 10, 12, 14, 16];
+          var r = runSearch(id, values, 15); // 見つからないケース
+          var c = 0;
+          r.rec.steps.forEach(function (s, k) {
+            assert(s.counters.compare >= c, 'step ' + k + ' で比較回数が減った');
+            c = s.counters.compare;
+          });
+          return '比較 ' + c;
+        });
+
+        /* (e) VBAソースにマーカーが残っていない */
+        check(A.name + ' · 表示コードにマーカーが残っていない', function () {
+          var r = runSearch(id, [1, 2, 3, 4, 5], 3);
+          assert(r.model.text.indexOf("'#") < 0, "'# が残っている");
+          assert(r.model.text.indexOf('Sub ') === 0, 'Sub で始まっていない');
+          assert(/End Sub$/.test(r.model.text), 'End Sub で終わっていない');
+          return 'OK';
+        });
+      });
+
+      /* (f) 理論値との整合 — 計算量の説明が嘘にならないことを担保する */
+      check('線形探索 · 見つかる場合の比較回数は必ず (見つかった位置+1)', function () {
+        var values = [10, 20, 30, 40, 50];
+        values.forEach(function (target, idx) {
+          var r = runSearch('linear', values, target);
+          assert(r.rec.compare === idx + 1,
+            'target=' + target + ': 実測 ' + r.rec.compare + ' / 期待 ' + (idx + 1));
+        });
+        return 'OK';
+      });
+
+      check('線形探索 · 見つからない場合の比較回数は必ず n', function () {
+        [3, 8, 16].forEach(function (n) {
+          var values = [];
+          for (var i = 0; i < n; i++) values.push(i * 2);
+          var r = runSearch('linear', values, -1);
+          assert(r.rec.compare === n, 'n=' + n + ': 実測 ' + r.rec.compare + ' / 期待 ' + n);
+        });
+        return 'OK';
+      });
+
+      check('二分探索 · 比較回数は常に理論上限（⌊log2 n⌋+1）以下', function () {
+        [1, 2, 3, 5, 8, 16, 32, 60].forEach(function (n) {
+          var values = [];
+          for (var i = 0; i < n; i++) values.push(i * 2);
+          var worst = Math.floor(Math.log2(n)) + 1;
+          values.forEach(function (target) {
+            var r = runSearch('binary', values, target);
+            assert(r.rec.compare <= worst,
+              'n=' + n + ' target=' + target + ': 実測 ' + r.rec.compare + ' が理論上限 ' + worst + ' を超えた');
+          });
+          var rNf = runSearch('binary', values, -1);
+          assert(rNf.rec.compare <= worst,
+            'n=' + n + '（見つからない場合）: 実測 ' + rNf.rec.compare + ' が理論上限 ' + worst + ' を超えた');
+        });
+        return 'OK';
+      });
+
+      check('二分探索 · 空配列でも例外を投げずに found=-1 になる', function () {
+        var r = runSearch('binary', [], 5);
+        assert(r.found === -1, 'found=' + r.found + '（期待 -1）');
+        return 'OK';
+      });
+    }
+
     return results;
   }
 

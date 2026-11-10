@@ -53,6 +53,7 @@ window.SV = window.SV || {};
     if (m.compare && m.compare.indexOf(i) >= 0) return 'compare';
     if (m.pivot === i) return 'pivot';
     if (step.sorted[i]) return 'sorted';
+    if (m.excluded && m.excluded.indexOf(i) >= 0) return 'excluded';
     return 'idle';
   }
 
@@ -173,14 +174,16 @@ window.SV = window.SV || {};
     el.appendChild(document.createTextNode(step.narration));
   }
 
-  function buildLegend(el) {
-    var items = [
-      ['idle', '未処理'],
-      ['compare', '比較中'],
-      ['swap', '交換中'],
-      ['pivot', '基準 / 最小の候補'],
-      ['sorted', '確定済み']
-    ];
+  var DEFAULT_LEGEND = [
+    ['idle', '未処理'],
+    ['compare', '比較中'],
+    ['swap', '交換中'],
+    ['pivot', '基準 / 最小の候補'],
+    ['sorted', '確定済み']
+  ];
+
+  function buildLegend(el, items) {
+    items = items || DEFAULT_LEGEND;
     el.innerHTML = '';
     for (var i = 0; i < items.length; i++) {
       var wrap = document.createElement('span');
@@ -190,6 +193,9 @@ window.SV = window.SV || {};
       sw.className = 'legend__swatch';
       sw.style.background = 'var(--bar-' + items[i][0] + ')';
       sw.style.borderTopColor = 'var(--bar-' + items[i][0] + '-edge)';
+      // items[i][2] は任意の不透明度（例: 探索の「除外」は色を新設せず idle を薄くしただけなので、
+      // 凡例も同じ色を流用しつつ opacity だけ落として見た目を合わせる）。
+      if (items[i][2] !== undefined) sw.style.opacity = String(items[i][2]);
 
       var label = document.createElement('span');
       label.textContent = items[i][1];

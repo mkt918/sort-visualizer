@@ -245,6 +245,9 @@ h1, h2, h3 {
 .bar[data-state="swap"]    .bar__col { background: var(--bar-swap);    border-top-color: var(--bar-swap-edge); transform: translateY(-5px); }
 .bar[data-state="sorted"]  .bar__col { background: var(--bar-sorted);  border-top-color: var(--bar-sorted-edge); }
 .bar[data-state="pivot"]   .bar__col { background: var(--bar-pivot);   border-top-color: var(--bar-pivot-edge); }
+/* 二分探索で、絞り込みにより探索範囲から外れた要素。新しい色は増やさず、idle色を薄くするだけに留める。 */
+.bar[data-state="excluded"] .bar__col { opacity: 0.35; }
+.bar[data-state="excluded"] .bar__value { opacity: 0.35; }
 
 .bar[data-state="compare"] .bar__value,
 .bar[data-state="swap"] .bar__value,
@@ -677,6 +680,28 @@ h1, h2, h3 {
 }
 .studio__compare-table th:first-child, .studio__compare-table td:first-child { text-align: left; }
 .studio__compare-table tr.is-you td { font-weight: 600; color: var(--color-accent-2); }
+
+/* ============================================================
+   探索 — 平均ステップ数パネル（統計サブモード）
+   ============================================================ */
+.workbench.is-stats { grid-template-columns: minmax(0, 1fr); }
+
+.stats-panel { display: flex; flex-direction: column; gap: var(--space-lg); grid-column: 1 / -1; padding: var(--space-lg); }
+
+.stats-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-sm); }
+.stats-table th, .stats-table td {
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  text-align: right;
+}
+.stats-table th:first-child, .stats-table td:first-child { text-align: left; }
+
+.stats-bars { display: flex; flex-direction: column; gap: var(--space-sm); }
+.stats-bar { display: grid; grid-template-columns: 9ch minmax(0, 1fr) 8ch; align-items: center; gap: var(--space-sm); }
+.stats-bar__label { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-ink-2); }
+.stats-bar__track { height: 22px; background: var(--color-paper); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-sm); overflow: hidden; }
+.stats-bar__fill { height: 100%; background: var(--color-accent); transition: width var(--dur-3) var(--ease-out); }
+.stats-bar__value { font-family: var(--font-mono); font-size: var(--text-sm); text-align: right; color: var(--color-ink); }
 
 /* ============================================================
    レスポンシブ

@@ -65,7 +65,7 @@ window.SV = window.SV || {};
     return { header: header, footer: footer };
   }
 
-  var KEYWORDS = /\b(Sub|End|Dim|As|Long|For|To|Step|Next|If|Then|Else|Do|Loop|While|Until|And|Or|Not|Mod|Cells|Value|Option|Explicit|Const|True|False)\b/g;
+  var KEYWORDS = /\b(Sub|End|Dim|As|Long|For|To|Step|Next|If|Then|ElseIf|Else|Do|Loop|While|Until|And|Or|Not|Mod|Cells|Value|Option|Explicit|Const|True|False)\b/g;
 
   function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

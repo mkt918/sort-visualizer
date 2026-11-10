@@ -3,23 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ソートの動きを見る — VBAで読むアルゴリズム</title>
-<meta name="description" content="ソートアルゴリズムの動きを棒グラフで見ながら、対応するVBAコードの実行行を追いかける授業用ツール。">
+<title>アルゴリズムの動きを見る — VBAで読むソート・探索</title>
+<meta name="description" content="ソート・探索アルゴリズムの動きを棒グラフで見ながら、対応するVBAコードの実行行を追いかける授業用ツール。">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <header class="topbar">
-  <div class="topbar__brand">ソートの動きを見る<span class="topbar__sub">VBA</span></div>
+  <div class="topbar__brand">アルゴリズムの動きを見る<span class="topbar__sub">VBA</span></div>
+  <div class="mode-switch" id="topicSwitch" role="group" aria-label="並べ替え・探索の切り替え">
+    <button class="btn btn--sm" type="button" data-topic="sort" aria-pressed="true">並べ替え</button>
+    <button class="btn btn--sm" type="button" data-topic="search" aria-pressed="false">探索</button>
+  </div>
   <div class="mode-switch" id="modeSwitch" role="group" aria-label="表示モード">
     <button class="btn btn--sm" type="button" data-mode="solo" aria-pressed="true">▶ ソロ</button>
     <button class="btn btn--sm" type="button" data-mode="race" aria-pressed="false">🏁 レース</button>
     <button class="btn btn--sm" type="button" data-mode="studio" aria-pressed="false">✎ じぶんで書く</button>
   </div>
   <nav class="algos" id="algos" aria-label="アルゴリズムの選択"></nav>
+  <div class="mode-switch" id="searchModeSwitch" role="group" aria-label="探索の表示モード" hidden>
+    <button class="btn btn--sm" type="button" data-mode="solo" aria-pressed="true">▶ ソロ</button>
+    <button class="btn btn--sm" type="button" data-mode="race" aria-pressed="false">🏁 レース</button>
+    <button class="btn btn--sm" type="button" data-mode="stats" aria-pressed="false">📊 平均</button>
+  </div>
+  <nav class="algos" id="searchAlgos" aria-label="探索アルゴリズムの選択" hidden></nav>
 </header>
 
-<main class="workbench">
+<main class="workbench" id="sortWorkbench">
 
   <section class="stage" id="stage" aria-label="可視化">
     <div class="stage__head">
@@ -239,6 +249,150 @@
   <div class="legend" id="legend" aria-label="棒の色の意味"></div>
 </main>
 
+<main class="workbench" id="searchWorkbench" hidden>
+
+  <section class="stage" id="searchStage" aria-label="探索の可視化">
+    <div class="stage__head">
+      <h1 class="stage__title" id="searchStageTitle">—</h1>
+      <p class="stage__summary" id="searchStageSummary"></p>
+    </div>
+
+    <div id="searchSoloView">
+      <div class="chart" id="searchChart" role="img" aria-label="探索中の配列の棒グラフ"></div>
+
+      <p class="narration" id="searchNarration" aria-live="polite"></p>
+
+      <div class="transport">
+        <input class="seek" id="searchSeek" type="range" min="0" max="0" value="0" step="1"
+               aria-label="ステップ位置">
+
+        <div class="control-group">
+          <div class="transport__row">
+            <button class="btn btn--primary" id="searchBtnPlay" type="button">▶ 再生</button>
+            <button class="btn btn--icon" id="searchBtnPrev" type="button" aria-label="1ステップ戻る" title="1ステップ戻る（←）">◀1</button>
+            <button class="btn btn--icon" id="searchBtnNext" type="button" aria-label="1ステップ進む" title="1ステップ進む（→）">1▶</button>
+            <button class="btn" id="searchBtnReset" type="button" title="最初のステップへ">⏮ 最初へ</button>
+          </div>
+          <div class="transport__row">
+            <span class="u-label">速度</span>
+            <div class="speedset" id="searchSpeedSet" role="group" aria-label="再生速度（1秒あたりのステップ数）">
+              <button class="btn btn--sm" type="button" data-speed="1">1</button>
+              <button class="btn btn--sm" type="button" data-speed="2">2</button>
+              <button class="btn btn--sm" type="button" data-speed="4">4</button>
+              <button class="btn btn--sm" type="button" data-speed="8" aria-pressed="true">8</button>
+              <button class="btn btn--sm" type="button" data-speed="16">16</button>
+              <button class="btn btn--sm" type="button" data-speed="32">32</button>
+              <button class="btn btn--sm" type="button" data-speed="64">64</button>
+            </div>
+            <span class="u-label">step/秒</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="searchRaceView" class="race" hidden>
+      <div class="race__lanes">
+        <div class="race__lane" data-lane="a">
+          <div class="race__head">
+            <span class="u-label">線形探索</span>
+            <span class="race__status" id="searchRaceStatusA"></span>
+          </div>
+          <div class="chart chart--race" id="searchRaceChartA" role="img" aria-label="線形探索の棒グラフ"></div>
+          <div class="race__stats">
+            <span>step <b id="searchRaceStepA">0</b> / <span id="searchRaceTotalA">0</span></span>
+            <span>比較 <b id="searchRaceCompareA">0</b></span>
+          </div>
+        </div>
+        <div class="race__lane" data-lane="b">
+          <div class="race__head">
+            <span class="u-label">二分探索</span>
+            <span class="race__status" id="searchRaceStatusB"></span>
+          </div>
+          <div class="chart chart--race" id="searchRaceChartB" role="img" aria-label="二分探索の棒グラフ"></div>
+          <div class="race__stats">
+            <span>step <b id="searchRaceStepB">0</b> / <span id="searchRaceTotalB">0</span></span>
+            <span>比較 <b id="searchRaceCompareB">0</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="race__controls">
+        <button class="btn btn--primary" id="searchRaceBtnPlay" type="button">▶ レース開始</button>
+        <button class="btn" id="searchRaceBtnReset" type="button">⏮ やり直す</button>
+        <span class="u-label">同じ配列・同じ探す値で、線形探索と二分探索を同時に走らせます</span>
+      </div>
+    </div>
+
+    <div id="searchStatsView" class="stats-panel" hidden>
+      <p class="u-label">今の配列（<span id="searchStatsN">0</span>個）の全要素を1つずつ探したときの、平均比較回数</p>
+      <table class="stats-table" id="searchStatsTable"></table>
+      <div class="stats-bars" id="searchStatsBars"></div>
+      <p class="narration" id="searchStatsNote"></p>
+    </div>
+
+  </section>
+
+  <aside class="inspector" id="searchInspector" aria-label="コードと状態">
+
+    <section class="panel panel--code">
+      <div class="panel__head">
+        <span class="u-label">VBA — 実行中の行</span>
+        <label class="field"><input type="checkbox" id="searchChkFull"> 読み込み・書き出しも表示</label>
+      </div>
+      <ol class="code" id="searchCode"></ol>
+      <div class="transport__row">
+        <button class="btn btn--sm" id="searchBtnCopy" type="button">コードをコピー</button>
+        <span class="u-label">VBE に貼り付けて F5</span>
+      </div>
+    </section>
+
+    <section class="panel panel--watch">
+      <div class="panel__head"><span class="u-label">変数ウォッチ</span></div>
+      <div class="watch" id="searchWatch"></div>
+    </section>
+
+    <section class="panel panel--count">
+      <div class="panel__head"><span class="u-label">回数</span></div>
+      <div class="counters">
+        <div class="counter">
+          <span class="counter__k">比較</span>
+          <span class="counter__v" id="searchCntCompare">0</span>
+          <span class="counter__note" id="searchCntTheory"></span>
+        </div>
+        <div class="counter">
+          <span class="counter__k">計算量</span>
+          <span class="counter__v" id="searchCntOrder">—</span>
+          <span class="counter__note">最悪のとき</span>
+        </div>
+      </div>
+    </section>
+
+  </aside>
+
+  <div class="control-group datasource" id="searchDatasourcePanel">
+    <div class="control-group__head"><span class="u-label">初期データ（探索のため、常に昇順ソート済み）</span></div>
+    <div class="transport__row">
+      <span id="searchPresets" class="transport__row" role="group" aria-label="データパターン"></span>
+    </div>
+    <div class="transport__row">
+      <label class="field">本数
+        <select id="searchCount">
+          <option>8</option><option>10</option><option selected>12</option>
+          <option>16</option><option>20</option><option>24</option>
+          <option>30</option><option>40</option><option>50</option><option>60</option>
+        </select>
+      </label>
+      <button class="btn btn--sm" id="searchBtnShuffle" type="button">作り直す</button>
+    </div>
+    <div class="control-group__head"><span class="u-label">探す値</span></div>
+    <div class="transport__row" id="searchTargetSwitch" role="group" aria-label="探す値の選び方">
+      <button class="btn btn--sm" type="button" data-target="found" aria-pressed="true">見つかる値</button>
+      <button class="btn btn--sm" type="button" data-target="notfound" aria-pressed="false">見つからない値</button>
+    </div>
+  </div>
+
+  <div class="legend" id="searchLegend" aria-label="棒の色の意味"></div>
+</main>
+
 <footer class="foot">
   <span>スペース＝再生／停止　←→＝1ステップ　R＝作り直す</span>
   <span>画面のコードは <code>標準モジュール</code> に貼れば Excel でそのまま動きます（A列を読み、B列に書き出します）。</span>
@@ -259,9 +413,12 @@
 <script src="js/algorithms/quick.js"></script>
 <script src="js/algorithms/merge.js"></script>
 <script src="js/algorithms/heap.js"></script>
+<script src="js/algorithms/linear-search.js"></script>
+<script src="js/algorithms/binary-search.js"></script>
 <script src="js/missions.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/studio.js"></script>
+<script src="js/search.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -70,7 +70,8 @@ window.SV = window.SV || {};
         compare: mark.compare ? mark.compare.slice() : null,
         swap: mark.swap ? mark.swap.slice() : null,
         cursor: mark.cursor ? mark.cursor.slice() : null,
-        pivot: (typeof mark.pivot === 'number') ? mark.pivot : null
+        pivot: (typeof mark.pivot === 'number') ? mark.pivot : null,
+        excluded: mark.excluded ? mark.excluded.slice() : null
       },
       sorted: this.sorted.slice(),
       vars: vars,

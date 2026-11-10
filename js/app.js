@@ -22,7 +22,8 @@
     editText: '',          // 最後に成功した／編集中のコアループのテキスト（アルゴリズム切替でリセット）
     mode: 'solo',          // 'solo' | 'race' | 'studio'
     raceViewA: null,
-    raceViewB: null
+    raceViewB: null,
+    topic: 'sort'          // 'sort' | 'search'（トップバーの「並べ替え／探索」切り替え）
   };
   var raceAlgo = { a: 'bubble', b: 'quick' };
   var raceFinished = false; // どちらかが完走した後は、再生ボタンで「最初から」やり直す
@@ -332,6 +333,42 @@
     el.raceBtnPlay.textContent = '⏸ 一時停止';
   }
 
+  /* topic: 'sort' | 'search'。トップバーの「並べ替え／探索」の大分類切り替え。
+   * ソートと探索は交換の有無・range絞り込み・見つかる/見つからないという結果の
+   * 有無など性質が違うため、実装は js/search.js（js/studio.js と同じ
+   * onEnter/onExit の2メソッドだけで委譲する隔離パターン）に分けてある。
+   * ここでは画面をまるごと出し入れするだけ。 */
+  function setTopic(topic) {
+    if (topic === state.topic) return;
+    var prevTopic = state.topic;
+    state.topic = topic;
+
+    var buttons = el.topicSwitch.querySelectorAll('[data-topic]');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-topic') === topic));
+    }
+
+    var isSort = topic === 'sort';
+    el.sortWorkbench.hidden = !isSort;
+    el.modeSwitch.hidden = !isSort;
+    el.algos.hidden = !isSort;
+    el.searchWorkbenchEl.hidden = isSort;
+    el.searchModeSwitchEl.hidden = isSort;
+    el.searchAlgosEl.hidden = isSort;
+
+    if (isSort) {
+      SV.Search.onExit();
+      if (state.mode === 'race') rebuildRace();
+      else if (state.mode === 'studio') SV.Studio.onEnter(state.values);
+      else rebuild();
+    } else {
+      player.pause();
+      race.pause();
+      if (prevTopic === 'sort' && state.mode === 'studio') SV.Studio.onExit();
+      SV.Search.onEnter();
+    }
+  }
+
   /* mode: 'solo' | 'race'。トップバーの2択セグメントコントロールから呼ぶ。
    * 同じモードを選び直したときは何もしない（前は単発トグルボタンだったが、
    * 「今どちらのモードか」がボタン一つでは伝わりにくかったため2択にした）。 */
@@ -459,6 +496,7 @@
     if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+    if (state.topic !== 'sort') return; // 探索topic側は js/search.js 独自のキーハンドラが担当する
     if (state.mode === 'studio') return; // スタジオ独自の操作系はクリックのみ（グローバルショートカットは持たない）
 
     if (e.code === 'Space') {
@@ -490,6 +528,16 @@
      'raceSwapA', 'raceSwapB', 'raceBtnPlay', 'raceBtnReset'
     ].forEach(function (id) { el[id] = $(id); });
     el.workbench = document.querySelector('.workbench');
+    el.topicSwitch = $('topicSwitch');
+    el.sortWorkbench = $('sortWorkbench');
+    el.searchWorkbenchEl = $('searchWorkbench');
+    el.searchModeSwitchEl = $('searchModeSwitch');
+    el.searchAlgosEl = $('searchAlgos');
+
+    el.topicSwitch.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-topic]') : null;
+      if (btn) setTopic(btn.getAttribute('data-topic'));
+    });
 
     player.onChange = onChange;
     player.onStateChange = onPlayState;
